@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Güvercin.Net - Kanat Çırpan Mesajlar</title>
+  <title>Güvercin.Net - Kafes</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
@@ -12,25 +12,31 @@
 
   <header class="navbar">
     <div class="logo">🕊️ Güvercin.Net</div>
-    <div class="user-status">Senin Rolün: <span class="badge admin-role">{{ roller['Sen'] }}</span></div>
+    <div class="user-status">
+      <strong>{{ aktif_user }}</strong> (<span class="badge admin-role">{{ mevcut_rol }}</span>)
+      <a href="/logout" style="margin-left: 10px; color: #ff4757; text-decoration: none; font-size: 13px;">Çıkış Yap</a>
+    </div>
   </header>
 
   <main class="container">
     <section class="panel admin-panel">
       <h3>👑 Kuş Bakışı Yönetim</h3>
-      <p>Sistemdeki güvercinlere unvan ver!</p>
-
+      {% if aktif_user == 'Admin' %}
+      <p>Güvercinlerin rollerini buradan uçur aga:</p>
       <form class="pigeon-form" action="/rol-ver" method="POST">
-        <input type="text" name="kullanici_adi" placeholder="Kullanıcı Adı (Örn: Arda veya Sen)" required>
-        <input type="text" name="rol_adi" placeholder="Verilecek Rol (Örn: Postacı)" required>
-        <button type="submit" class="btn-primary">Kanatlandır (Rol Ver)</button>
+        <input type="text" name="kullanici_adi" placeholder="Kullanıcı Adı" required>
+        <input type="text" name="rol_adi" placeholder="Verilecek Rol" required>
+        <button type="submit" class="btn-primary">Rolü Tanımla</button>
       </form>
+      {% else %}
+      <p style="color: #7f8c8d;">⚠️ Rol verme yetkisi sadece sistem lideri Admin'e aittir aga. .d</p>
+      {% endif %}
 
       <div class="rollu-kuslar" style="margin-top: 20px;">
-        <h4>📜 Kayıtlı Güvercinler:</h4>
-        <ul style="list-style: none; margin-top: 10px;">
+        <h4>📜 Tüm Güvercinlerin Rolleri:</h4>
+        <ul style="list-style: none; margin-top: 10px; padding: 0;">
           {% for isim, rol in roller.items() %}
-          <li style="margin-bottom: 5px;">🕊️ <strong>{{ isim }}:</strong> <span class="badge user-role">{{ rol
+          <li style="margin-bottom: 8px;">🕊️ <strong>{{ isim }}:</strong> <span class="badge user-role">{{ rol
               }}</span></li>
           {% endfor %}
         </ul>
@@ -38,13 +44,16 @@
     </section>
 
     <section class="panel chat-panel">
-      <h3>💬 Mesaj Kafesi</h3>
+      <h3>💬 Mesaj Kafesi (Son Konuşulanlar)</h3>
       <div class="chat-box">
+        {% if not mesajlar %}
+        <p style="text-align: center; color: #aaa; margin-top: 100px;">Kafes şimdilik sessiz... İlk mesajı sen at aga!
+          :D</p>
+        {% endif %}
         {% for msg in mesajlar %}
-        <div class="message {{ msg.tip }}">
-          <span class="badge {% if msg.gonderen == 'Sen' %}admin-role{% else %}user-role{% endif %}">
-            {{ msg.rol }}
-          </span>
+        <div class="message {% if msg.gonderen == aktif_user %}outgoing{% else %}incoming{% endif %}">
+          <span class="badge {% if msg.gonderen == 'Admin' %}admin-role{% else %}user-role{% endif %}">{{ msg.rol
+            }}</span>
           <strong>{{ msg.gonderen }}:</strong> {{ msg.metin }}
         </div>
         {% endfor %}
@@ -52,10 +61,24 @@
 
       <form class="chat-input-area" action="/mesaj-gonder" method="POST">
         <input type="text" name="mesaj" placeholder="Mesajını güvercine yükle..." required autocomplete="off">
-        <button type="submit" class="btn-send">🕊️ Gönder</button>
+        <button type="submit" class="btn-send">🕊️ Uçur</button>
       </form>
     </section>
   </main>
+
+  {% if aktif_user == 'Admin' %}
+  <div class="container" style="margin-top: 0; margin-bottom: 40px;">
+    <section class="panel" style="grid-column: span 2; background: #2c3e50; color: #ecf0f1;">
+      <h3 style="color: #00d2d3;">🛠️ Sistem Giriş Logları (Admin Özel)</h3>
+      <div
+        style="max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 13px; margin-top: 10px; line-height: 1.6;">
+        {% for log in logs %}
+        <p>> {{ log }}</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  {% endif %}
 
 </body>
 

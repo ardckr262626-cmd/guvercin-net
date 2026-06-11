@@ -33,6 +33,7 @@ body {
   transform: translateY(-3px);
 }
 
+/* Grid Yapısı */
 .container {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -52,7 +53,6 @@ body {
 
 .panel:hover {
   box-shadow: 0 15px 30px rgba(75, 123, 236, 0.15);
-  transform: scale(1.01);
 }
 
 .pigeon-form,
@@ -93,15 +93,15 @@ input:focus {
 }
 
 .btn-send {
-  width: 150px;
+  width: 120px;
 }
 
 .btn-primary:hover,
 .btn-send:hover {
   background-color: #3867d6;
-  letter-spacing: 1px;
 }
 
+/* Chat Box */
 .chat-box {
   height: 350px;
   border: 1px solid #e2e8f0;
@@ -118,10 +118,11 @@ input:focus {
 .message {
   padding: 10px 15px;
   border-radius: 12px;
-  max-width: 75%;
-  animation: ucusEfekti 0.5s ease-out;
+  max-width: 85%;
+  animation: ucusEfekti 0.3s ease-out;
 }
 
+/* Dinamik Mesaj Konumları */
 .incoming {
   background-color: #f1f2f6;
   align-self: flex-start;
@@ -158,5 +159,30 @@ input:focus {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 📱 MÜHENDİSLİK NOTU: MOBİL GÜNCELLEMESİ (RESPONSIVE) */
+@media (max-width: 768px) {
+  .container {
+    grid-template-columns: 1fr;
+    /* Mobilde yan yana değil, alt alta dizilim */
+    margin: 15px auto;
+  }
+
+  .navbar {
+    padding: 15px;
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .chat-input-area {
+    flex-direction: column;
+    /* Mobilde mesaj kutusu ve buton alt alta gelir */
+  }
+
+  .btn-send {
+    width: 100%;
   }
 }
