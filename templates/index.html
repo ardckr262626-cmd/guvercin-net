@@ -5,11 +5,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Güvercin.Net - Canlı Kafes</title>
-
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='logo.png') }}">
-  <link rel="shortcut icon" href="{{ url_for('static', filename='logo.png') }}">
-
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
@@ -35,6 +30,40 @@
         <input type="text" name="rol_adi" placeholder="Verilecek Rol" required>
         <button type="submit" class="btn-primary">Bilgileri Kanatlandır</button>
       </form>
+
+      <div class="guide-box"
+        style="margin-top: 20px; background-color: #f7f9fa; border-left: 4px solid #4b7bec; padding: 12px; border-radius: 5px;">
+        <h4 style="color: #4b7bec; margin-bottom: 8px;">📜 Kurucu Komut Kılavuzu</h4>
+        <p style="font-size: 12px; color: #555; margin-bottom: 8px;">Aşağıdaki komutları ana chat kutusuna yazıp
+          uçurarak kafesi yönetebilirsin aga:</p>
+        <table style="width: 100%; font-size: 11px; text-align: left; border-collapse: collapse;">
+          <tr style="background-color: #e2e8f0;">
+            <th style="padding: 5px;">Komut</th>
+            <th style="padding: 5px;">Açıklama</th>
+          </tr>
+          <tr>
+            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/clear</b></td>
+            <td style="padding: 5px;">Herkesin ekranındaki tüm mesajları siler.</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/mute</b></td>
+            <td style="padding: 5px;">Chati kilitler. Senden başka kimse yazamaz.</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/unmute</b></td>
+            <td style="padding: 5px;">Chat kilidini açar, herkes yazabilir.</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/slowmode [sn]</b></td>
+            <td style="padding: 5px;">Mesaj atma aralığı koyar (Örn: <tt>/slowmode 5</tt>). Kapatmak için <tt>/slowmode
+                0</tt> yap.</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/system [mesaj]</b></td>
+            <td style="padding: 5px;">Chate kalın ve dikkat çekici sistem duyurusu geçer.</td>
+          </tr>
+        </table>
+      </div>
       {% else %}
       <p style="color: #7f8c8d;">⚠️ Şifre, rol verme ve kuş silme yetkisi sadece <strong>Kurucu</strong> güvercine
         aittir aga. .d</p>
@@ -73,18 +102,25 @@
           aga! :D</p>
         {% endif %}
         {% for msg in mesajlar %}
-        <div class="message {% if msg.gonderen == aktif_user %}outgoing{% else %}incoming{% endif %}">
+        <div class="message {% if msg.gonderen == aktif_user %}outgoing{% else %}incoming{% endif %}" {% if
+          msg.gonderen=='📢 DUYURU'
+          %}style="background: #fff2f2; border: 2px solid #ff4757; max-width: 100%; width: 100%; text-align: center; color: #ff4757;"
+          {% endif %}>
+          {% if msg.gonderen != '📢 DUYURU' and msg.gonderen != 'SİSTEM' %}
           <span class="badge {% if msg.gonderen == 'Kurucu' %}admin-role{% else %}user-role{% endif %}">{{ msg.rol
             }}</span>
+          {% endif %}
           <strong>{{ msg.gonderen }}:</strong> {{ msg.metin }}
         </div>
         {% endfor %}
       </div>
 
       <form class="chat-input-area" id="chatForm">
-        <input type="text" id="mesajInput" placeholder="Mesajını güvercinin ayağına bağla..." required
-          autocomplete="off">
-        <button type="submit" class="btn-send">🕊️ Uçur</button>
+        <input type="text" id="mesajInput"
+          placeholder="{% if chat_susturuldu and aktif_user != 'Kurucu' %}🔇 Chat şu an kilitli aga...{% else %}Mesajını veya komutunu uçur...{% endif %}"
+          required autocomplete="off" {% if chat_susturuldu and aktif_user !='Kurucu' %}disabled{% endif %}>
+        <button type="submit" class="btn-send" {% if chat_susturuldu and aktif_user !='Kurucu' %}disabled
+          style="background:#ccc;" {% endif %}>🕊️ Uçur</button>
       </form>
     </section>
   </main>
@@ -116,10 +152,27 @@
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
         const gelenKutu = doc.getElementById('chatBox');
+        const gelenInput = doc.getElementById('mesajInput');
 
+        // Chat kutusunu yenile
         if (gelenKutu && chatBox.innerHTML !== gelenKutu.innerHTML) {
           chatBox.innerHTML = gelenKutu.innerHTML;
           chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Mute durumunda input alanını canlı kilitle/aç (Kurucu hariç)
+        if ("{{ aktif_user }}" !== "Kurucu" && gelenInput && mesajInput) {
+          if (gelenInput.hasAttribute('disabled') && !mesajInput.hasAttribute('disabled')) {
+            mesajInput.setAttribute('disabled', 'true');
+            mesajInput.placeholder = "🔇 Chat şu an kilitli aga...";
+            document.querySelector('.btn-send').setAttribute('disabled', 'true');
+            document.querySelector('.btn-send').style.background = "#ccc";
+          } else if (!gelenInput.hasAttribute('disabled') && mesajInput.hasAttribute('disabled')) {
+            mesajInput.removeAttribute('disabled');
+            mesajInput.placeholder = "Mesajını veya komutunu uçur...";
+            document.querySelector('.btn-send').removeAttribute('disabled');
+            document.querySelector('.btn-send').style.background = "#4b7bec";
+          }
         }
       } catch (err) {
         console.error("Hata aga:", err);

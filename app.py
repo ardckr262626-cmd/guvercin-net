@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import os
 from datetime import datetime
+import time
 
 app = Flask(__name__)
 app.secret_key = "guvercin_gizemli_kod_aga"
@@ -14,6 +15,11 @@ guvercin_veritabi = {
 
 mesajlar = []
 log_kayitlari = []
+
+# ⚙️ MÜHENDİSLİK NOTU: Gelişmiş Komut Değişkenleri
+chat_susturuldu = False
+slowmode_suresi = 0  # Saniye cinsinden (0 ise kapalı)
+son_mesaj_zamanlari = {}  # Kullanıcıların son mesaj atma vakitleri
 
 @app.route('/')
 def index():
@@ -30,7 +36,9 @@ def index():
                            kuslar=guvercin_veritabi, 
                            aktif_user=aktif,
                            mevcut_rol=guvercin_veritabi[aktif]['rol'],
-                           logs=log_kayitlari)
+                           logs=log_kayitlari,
+                           chat_susturuldu=chat_susturuldu,
+                           slowmode=slowmode_suresi)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -47,47 +55,23 @@ def login():
         else:
             hata = "Böyle bir kuş yok veya şifre hatalı aga! .d"
             
-    # MÜHENDİSLİK NOTU: <head> ve <meta name="viewport"> eklenerek mobilde büyüme zorunlu kılındı aga!
     return f'''
-        <!DOCTYPE html>
-        <html lang="tr">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Güvercin Kafesi - Giriş</title>
-            <style>
-                body{{ background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin:0;}}
-                .box{{ background: white; padding: 40px 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 380px; transition: all 0.3s ease;}}
-                input{{ width: 100%; padding: 14px; margin: 12px 0; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 15px; outline: none;}}
-                input:focus{{ border-color: #4b7bec; }}
-                button{{ background: #4b7bec; color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 10px;}}
-                .error{{ color: #ff4757; font-size: 14px; margin-bottom: 10px; font-weight: bold;}}
-                
-                @media (max-width: 480px) {{
-                    .box {{
-                        width: 92% !important;
-                        max-width: 92% !important;
-                        padding: 35px 20px !important;
-                    }}
-                    input, button {{
-                        padding: 16px !important;
-                        font-size: 16px !important;
-                    }}
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="box">
-                <h2 style="margin-bottom: 15px; color: #2c3e50; font-size: 24px;">🕊️ Güvercin Kafesi</h2>
-                {f'<div class="error">{hata}</div>' if hata else ''}
-                <form method="POST">
-                    <input type="text" name="kus_adi" placeholder="Güvercin Adı (Örn: Kurucu)" required autocomplete="off">
-                    <input type="password" name="sifre" placeholder="Şifre" required>
-                    <button type="submit">Kanat Çırp</button>
-                </form>
-            </div>
-        </body>
-        </html>
+        <style>
+            body{{ background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin:0;}}
+            .box{{ background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 350px;}}
+            input{{ width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box;}}
+            button{{ background: #4b7bec; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px;}}
+            .error{{ color: #ff4757; font-size: 13px; margin-bottom: 10px; }}
+        </style>
+        <div class="box">
+            <h2>🕊️ Güvercin Kafesi Giriş</h2>
+            {f'<div class="error">{{hata}}</div>' if hata else ''}
+            <form method="POST">
+                <input type="text" name="kus_adi" placeholder="Güvercin Adı" required>
+                <input type="password" name="sifre" placeholder="Şifre" required>
+                <button type="submit">Kanat Çırp</button>
+            </form>
+        </div>
     '''
 
 @app.route('/logout')
@@ -95,15 +79,95 @@ def logout():
     session.pop('kus_adi', None)
     return redirect(url_for('login'))
 
+@app.route('/mesaj-gonder', methods=['POST'])
+def mesaj_gonder():
+    global chat_susturuldu, slowmode_suresi, mesajlar, log_kayitlari
+    
+    metin = request.form.get('mesaj', '').strip()
+    user = session.get('kus_adi', 'Yabancı Kuş')
+    
+    if not metin:
+        return redirect(url_for('index'))
+
+    # 👑 KURUCU KOMUT SİSTEMİ KONTROLÜ
+    if metin.startswith('/') and user == 'Kurucu':
+        parcalar = metin.split(' ')
+        komut = parcalar[0].lower()
+        zaman = datetime.now().strftime('%H:%M:%S')
+
+        # 1. /clear Komutu
+        if komut == '/clear':
+            mesajlar = []
+            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "🧹 Kafes Kurucu tarafından tamamen süpürüldü!"})
+            log_kayitlari.append(f"[{zaman}] 🧹 Kurucu chat geçmişini temizledi.")
+            return redirect(url_for('index'))
+
+        # 2. /mute Komutu
+        elif komut == '/mute':
+            chat_susturuldu = True
+            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "🔇 Kafes Kurucu tarafından susturuldu. Sadece Kurucu ötebilir!"})
+            log_kayitlari.append(f"[{zaman}] 🔇 Chat susturuldu.")
+            return redirect(url_for('index'))
+
+        # 3. /unmute Komutu
+        elif komut == '/unmute':
+            chat_susturuldu = False
+            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "🔊 Kafesin kilidi açıldı, tüm kuşlar özgürce ötebilir!"})
+            log_kayitlari.append(f"[{zaman}] 🔊 Chat kilidi açıldı.")
+            return redirect(url_for('index'))
+
+        # 4. /slowmode [saniye] Komutu
+        elif komut == '/slowmode':
+            try:
+                saniye = int(parcalar[1]) if len(parcalar) > 1 else 0
+                slowmode_suresi = saniye
+                if saniye > 0:
+                    mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"⏳ Yavaş mod aktif edildi! Kuşlar {saniye} saniyede bir mesaj atabilir."})
+                    log_kayitlari.append(f"[{zaman}] ⏳ Yavaş mod {saniye}sn olarak ayarlandı.")
+                else:
+                    mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "⚡ Yavaş mod kaldırıldı. Akış serbest!"})
+                    log_kayitlari.append(f"[{zaman}] ⚡ Yavaş mod kapatıldı.")
+            except ValueError:
+                pass
+            return redirect(url_for('index'))
+
+        # 5. /system [mesaj] Komutu
+        elif komut == '/system':
+            duyuru_metni = " ".join(parcalar[1:])
+            if duyuru_metni:
+                mesajlar.append({"gonderen": "📢 DUYURU", "rol": "👑 Kurucu Özel", "metin": f"🚨 {duyuru_metni} 🚨"})
+            return redirect(url_for('index'))
+
+    # 🛑 NORMAL KULLANICI KISITLAMALARI KONTROLÜ
+    if user != 'Kurucu':
+        # Chat susturuldu mu kontrolü
+        if chat_susturuldu:
+            return redirect(url_for('index'))
+            
+        # Slowmode (Yavaş Mod) kontrolü
+        if slowmode_suresi > 0:
+            simdi = time.time()
+            son_atilan = son_mesaj_zamanlari.get(user, 0)
+            if simdi - son_atilan < slowmode_suresi:
+                # Süre dolmadıysa engelle, direkt sayfaya yönlendir
+                return redirect(url_for('index'))
+            son_mesaj_zamanlari[user] = simdi
+
+    # Normal Mesaj Gönderme İşlemi
+    mesajlar.append({
+        "gonderen": user,
+        "rol": guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş'),
+        "metin": metin
+    })
+    return redirect(url_for('index'))
+
 @app.route('/sifre-ve-rol-ver', methods=['POST'])
 def sifre_ve_rol_ver():
     if session.get('kus_adi') != 'Kurucu':
         return "Aga bu yetki sadece Kurucu Güvercin'e ait! .d", 403
-        
     isim = request.form.get('kus_adi')
     yeni_sifre = request.form.get('sifre')
     yeni_rol = request.form.get('rol_adi')
-    
     if isim:
         if isim not in guvercin_veritabi:
             guvercin_veritabi[isim] = {}
@@ -111,37 +175,20 @@ def sifre_ve_rol_ver():
             guvercin_veritabi[isim]['sifre'] = yeni_sifre
         if yeni_rol:
             guvercin_veritabi[isim]['rol'] = yeni_rol
-            
         zaman = datetime.now().strftime('%H:%M:%S')
         log_kayitlari.append(f"[{zaman}] 👑 Kurucu, {isim} kuşunun bilgilerini güncelledi.")
-        
     return redirect(url_for('index'))
 
 @app.route('/kus-sil/<string:kus_adi>', methods=['POST'])
 def kus_sil(kus_adi):
     if session.get('kus_adi') != 'Kurucu':
         return "Aga kuşu yuvadan sadece Kurucu atabilir! .d", 403
-    
     if kus_adi == 'Kurucu':
         return "Aga kendi kendini yuvadan atamazsın! :D", 400
-
     if kus_adi in guvercin_veritabi:
         del guvercin_veritabi[kus_adi]
         zaman = datetime.now().strftime('%H:%M:%S')
         log_kayitlari.append(f"❌ {kus_adi} kuşu Kurucu tarafından sepetlendi.")
-        
-    return redirect(url_for('index'))
-
-@app.route('/mesaj-gonder', methods=['POST'])
-def mesaj_gonder():
-    metin = request.form.get('mesaj')
-    user = session.get('kus_adi', 'Yabancı Kuş')
-    if metin:
-        mesajlar.append({
-            "gonderen": user,
-            "rol": guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş'),
-            "metin": metin
-        })
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
