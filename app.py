@@ -5,7 +5,6 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = "guvercin_gizemli_kod_aga"
 
-# Şifre düz metin, takılma riski sıfırlandı aga!
 guvercin_veritabi = {
     "Kurucu": {"sifre": "mor_guvercinkanadi", "rol": "Kurucu Güvercin"},
     "Taklacı": {"sifre": "777", "rol": "Yavru Kuş"},
@@ -33,6 +32,7 @@ def index():
                            mevcut_rol=guvercin_veritabi[aktif]['rol'],
                            logs=log_kayitlari)
 
+# 📱 MÜHENDİSLİK NOTU: Giriş ekranı CSS'ine mobilde kutuyu büyütecek @media sorgusu eklendi!
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     hata = None
@@ -51,16 +51,30 @@ def login():
     return f'''
         <style>
             body{{ background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin:0;}}
-            .box{{ background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 350px;}}
-            input{{ width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box;}}
-            button{{ background: #4b7bec; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px;}}
-            .error{{ color: #ff4757; font-size: 13px; margin-bottom: 10px; }}
+            .box{{ background: white; padding: 40px 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 380px; transition: all 0.3s ease;}}
+            input{{ width: 100%; padding: 14px; margin: 12px 0; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 15px; outline: none;}}
+            input:focus{{ border-color: #4b7bec; }}
+            button{{ background: #4b7bec; color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 10px;}}
+            .error{{ color: #ff4757; font-size: 14px; margin-bottom: 10px; font-weight: bold;}}
+            
+            /* Mobilde Giriş Kutusunu Orantılı Büyütme Alanı */
+            @media (max-width: 480px) {{
+                .box {{
+                    width: 95%;
+                    max-width: 95%;
+                    padding: 40px 20px; /* İç boşlukları telefona göre optimize ettik */
+                }}
+                input, button {{
+                    padding: 16px; /* Mobilde parmakla rahat basılsın diye input ve butonu büyüttük */
+                    font-size: 16px;
+                }}
+            }}
         </style>
         <div class="box">
-            <h2>🕊️ Güvercin Kafesi Giriş</h2>
+            <h2 style="margin-bottom: 15px; color: #2c3e50;">🕊️ Güvercin Kafesi</h2>
             {f'<div class="error">{{hata}}</div>' if hata else ''}
             <form method="POST">
-                <input type="text" name="kus_adi" placeholder="Güvercin Adı (Örn: Kurucu)" required>
+                <input type="text" name="kus_adi" placeholder="Güvercin Adı (Örn: Kurucu)" required autocomplete="off">
                 <input type="password" name="sifre" placeholder="Şifre" required>
                 <button type="submit">Kanat Çırp</button>
             </form>
@@ -81,7 +95,6 @@ def sifre_ve_rol_ver():
     yeni_sifre = request.form.get('sifre')
     yeni_rol = request.form.get('rol_adi')
     
-    # Mühendislik Notu: Hatalı olan isset kaldırıldı, Python tarzı kontrol getirildi!
     if isim:
         if isim not in guvercin_veritabi:
             guvercin_veritabi[isim] = {}
