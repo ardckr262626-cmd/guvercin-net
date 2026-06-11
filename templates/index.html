@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Güvercin.Net - Kanat Çırpan Mesajlar</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+  <header class="navbar">
+    <div class="logo">🕊️ Güvercin.Net</div>
+    <div class="user-status">Senin Rolün: <span class="badge admin-role">{{ roller['Sen'] }}</span></div>
+  </header>
+
+  <main class="container">
+    <section class="panel admin-panel">
+      <h3>👑 Kuş Bakışı Yönetim</h3>
+      <p>Sistemdeki güvercinlere unvan ver!</p>
+
+      <form class="pigeon-form" action="/rol-ver" method="POST">
+        <input type="text" name="kullanici_adi" placeholder="Kullanıcı Adı (Örn: Arda veya Sen)" required>
+        <input type="text" name="rol_adi" placeholder="Verilecek Rol (Örn: Postacı)" required>
+        <button type="submit" class="btn-primary">Kanatlandır (Rol Ver)</button>
+      </form>
+
+      <div class="rollu-kuslar" style="margin-top: 20px;">
+        <h4>📜 Kayıtlı Güvercinler:</h4>
+        <ul style="list-style: none; margin-top: 10px;">
+          {% for isim, rol in roller.items() %}
+          <li style="margin-bottom: 5px;">🕊️ <strong>{{ isim }}:</strong> <span class="badge user-role">{{ rol
+              }}</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel chat-panel">
+      <h3>💬 Mesaj Kafesi</h3>
+      <div class="chat-box">
+        {% for msg in mesajlar %}
+        <div class="message {{ msg.tip }}">
+          <span class="badge {% if msg.gonderen == 'Sen' %}admin-role{% else %}user-role{% endif %}">
+            {{ msg.rol }}
+          </span>
+          <strong>{{ msg.gonderen }}:</strong> {{ msg.metin }}
+        </div>
+        {% endfor %}
+      </div>
+
+      <form class="chat-input-area" action="/mesaj-gonder" method="POST">
+        <input type="text" name="mesaj" placeholder="Mesajını güvercine yükle..." required autocomplete="off">
+        <button type="submit" class="btn-send">🕊️ Gönder</button>
+      </form>
+    </section>
+  </main>
+
+</body>
+
+</html>
