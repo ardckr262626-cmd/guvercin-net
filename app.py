@@ -16,10 +16,10 @@ guvercin_veritabi = {
 mesajlar = []
 log_kayitlari = []
 
-# ⚙️ MÜHENDİSLİK NOTU: Kişiye Özel Gelişmiş Komut Değişkenleri
-susturulan_kuslar = set() # Susturulan kullanıcıların isimlerini tutar
-slowmode_suresi = 0  
-son_mesaj_zamanlari = {}  
+# ⚙️ MÜHENDİSLİK NOTU: Gelişmiş Komut ve Filtreleme Değişkenleri
+susturulan_kuslar = set()  # Susturulan kullanıcıların isimlerini tutar
+slowmode_suresi = 0        # Saniye cinsinden yavaş mod süresi
+son_mesaj_zamanlari = {}   # Kullanıcıların son mesaj atma vakitleri
 
 @app.route('/')
 def index():
@@ -65,7 +65,7 @@ def login():
         </style>
         <div class="box">
             <h2>🕊️ Güvercin Kafesi Giriş</h2>
-            {f'<div class="error">{{hata}}</div>' if hata else ''}
+            {{f'<div class="error">{{hata}}</div>' if hata else ''}}
             <form method="POST">
                 <input type="text" name="kus_adi" placeholder="Güvercin Adı" required>
                 <input type="password" name="sifre" placeholder="Şifre" required>
@@ -81,7 +81,7 @@ def logout():
 
 @app.route('/mesaj-gonder', methods=['POST'])
 def mesaj_gonder():
-    global slowmode_suresi, mesajlar, log_kayitlari
+    global slowmode_suresi, mesajlar, log_kayitlari, chat_susturuldu
     
     metin = request.form.get('mesaj', '').strip()
     user = session.get('kus_adi', 'Yabancı Kuş')
@@ -95,14 +95,14 @@ def mesaj_gonder():
         komut = parcalar[0].lower()
         zaman = datetime.now().strftime('%H:%M:%S')
 
-        # 1. /clear
+        # 1. /clear Komutu
         if komut == '/clear':
             mesajlar = []
             mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "🧹 Kafes Kurucu tarafından tamamen süpürüldü!", "ozel_alici": None})
             log_kayitlari.append(f"[{zaman}] 🧹 Kurucu chat geçmişini temizledi.")
             return redirect(url_for('index'))
 
-        # 2. /mute [KuşAdı] (Kişiye Özel)
+        # 2. /mute [KuşAdı] Komutu
         elif komut == '/mute':
             if len(parcalar) > 1:
                 hedef = parcalar[1]
@@ -111,7 +111,7 @@ def mesaj_gonder():
                 log_kayitlari.append(f"[{zaman}] 🔇 {hedef} susturuldu.")
             return redirect(url_for('index'))
 
-        # 3. /unmute [KuşAdı] (Kişiye Özel)
+        # 3. /unmute [KuşAdı] Komutu
         elif komut == '/unmute':
             if len(parcalar) > 1:
                 hedef = parcalar[1]
@@ -120,34 +120,35 @@ def mesaj_gonder():
                 log_kayitlari.append(f"[{zaman}] 🔊 {hedef} cezası kaldırıldı.")
             return redirect(url_for('index'))
 
-        # 4. /slowmode [saniye]
+        # 4. /slowmode [Saniye] Komutu
         elif komut == '/slowmode':
             try:
                 saniye = int(parcalar[1]) if len(parcalar) > 1 else 0
                 slowmode_suresi = saniye
                 if saniye > 0:
                     mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"⏳ Yavaş mod aktif! Kuşlar {saniye} saniyede bir yazabilir.", "ozel_alici": None})
+                    log_kayitlari.append(f"[{zaman}] ⏳ Yavaş mod {saniye}sn yapıldı.")
                 else:
                     mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "⚡ Yavaş mod kaldırıldı.", "ozel_alici": None})
+                    log_kayitlari.append(f"[{zaman}] ⚡ Yavaş mod kapatıldı.")
             except ValueError:
                 pass
             return redirect(url_for('index'))
 
-        # 5. /system [mesaj]
+        # 5. /system [Mesaj] Komutu
         elif komut == '/system':
             duyuru_metni = " ".join(parcalar[1:])
             if duyuru_metni:
                 mesajlar.append({"gonderen": "📢 DUYURU", "rol": "👑 Kurucu Özel", "metin": f"🚨 {duyuru_metni} 🚨", "ozel_alici": None})
             return redirect(url_for('index'))
 
-    # 🔒 /msg [KuşAdı] [Mesaj] - KİŞİYE ÖZEL MESAJ SİSTEMİ (Herkes Kullanabilir)
+    # 🔒 /msg [KuşAdı] [Mesaj] - GİZLİ MESAJ SİSTEMİ (Herkes Kullanabilir)
     if metin.startswith('/msg'):
         parcalar = metin.split(' ')
         if len(parcalar) > 2:
             hedef_alici = parcalar[1]
             ozel_mesaj = " ".join(parcalar[2:])
             
-            # Mesaj listesine ozel_alici filtresini ekleyerek fırlatıyoruz aga
             mesajlar.append({
                 "gonderen": user,
                 "rol": guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş'),
