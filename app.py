@@ -5,8 +5,7 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = "guvercin_gizemli_kod_aga"
 
-# Mühendislik Notu: Sunucuda patlama ihtimalini sıfırlamak için 
-# şifredeki Türkçe karakterleri 'mor_guvercinkanadi' olarak güncelledim aga.
+# Şifre düz metin, takılma riski sıfırlandı aga!
 guvercin_veritabi = {
     "Kurucu": {"sifre": "mor_guvercinkanadi", "rol": "Kurucu Güvercin"},
     "Taklacı": {"sifre": "777", "rol": "Yavru Kuş"},
@@ -23,7 +22,6 @@ def index():
         return redirect(url_for('login'))
         
     aktif = session['kus_adi']
-    # Eğer giriş yapan kuş veri tabanından silindiyse oturumunu kapatıyoruz
     if aktif not in guvercin_veritabi:
         session.pop('kus_adi', None)
         return redirect(url_for('login'))
@@ -83,7 +81,8 @@ def sifre_ve_rol_ver():
     yeni_sifre = request.form.get('sifre')
     yeni_rol = request.form.get('rol_adi')
     
-    if isset(isim) and isim:
+    # Mühendislik Notu: Hatalı olan isset kaldırıldı, Python tarzı kontrol getirildi!
+    if isim:
         if isim not in guvercin_veritabi:
             guvercin_veritabi[isim] = {}
         if yeni_sifre:
