@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Güvercin.Net - Kafes</title>
+  <title>Güvercin.Net - Canlı Kafes</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
@@ -61,23 +61,13 @@
     </section>
 
     <section class="panel chat-panel">
-      <h3>💬 Mesaj Kafesi (Son Konuşulanlar)</h3>
-      <div class="chat-box">
-        {% if not mesajlar %}
-        <p style="text-align: center; color: #aaa; margin-top: 100px;">Kafeste henüz ses yok... İlk ötüşü sen başlat
-          aga! :D</p>
-        {% endif %}
-        {% for msg in mesajlar %}
-        <div class="message {% if msg.gonderen == aktif_user %}outgoing{% else %}incoming{% endif %}">
-          <span class="badge {% if msg.gonderen == 'Kurucu' %}admin-role{% else %}user-role{% endif %}">{{ msg.rol
-            }}</span>
-          <strong>{{ msg.gonderen }}:</strong> {{ msg.metin }}
-        </div>
-        {% endfor %}
+      <h3>💬 Mesaj Kafesi (Canlı Akış ⚡)</h3>
+      <div class="chat-box" id="chatBox">
       </div>
 
-      <form class="chat-input-area" action="/mesaj-gonder" method="POST">
-        <input type="text" name="mesaj" placeholder="Mesajını güvercinin ayağına bağla..." required autocomplete="off">
+      <form class="chat-input-area" id="chatForm">
+        <input type="text" id="mesajInput" placeholder="Mesajını güvercinin ayağına bağla..." required
+          autocomplete="off">
         <button type="submit" class="btn-send">🕊️ Uçur</button>
       </form>
     </section>
@@ -96,6 +86,62 @@
     </section>
   </div>
   {% endif %}
+
+  <script>
+    const chatBox = document.getElementById('chatBox');
+    const chatForm = document.getElementById('chatForm');
+    const mesajInput = document.getElementById('mesajInput');
+    const aktifUser = "{{ aktif_user }}";
+
+    // 1. Sunucudan mesajları arka planda çeken fonksiyon (Fetch API)
+    async function mesajlariGetir() {
+      try {
+        // Flask index sayfamızın HTML'ini arka planda isteyip içindeki mesajları ayıklıyoruz
+        const response = await fetch('/');
+        const htmlText = await response.text();
+
+        // Gelen HTML'i sanal bir sayfaya dönüştürüp sadece chat-box içeriğini alıyoruz
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, 'text/html');
+        const yeniChatIcerigi = doc.getElementById('chatBox').innerHTML;
+
+        // Eğer yeni bir mesaj varsa, ekranı bozmadan sadece chat kutusunu güncelliyoruz
+        if (chatBox.innerHTML !== yeniChatIcerigi) {
+          chatBox.innerHTML = yeniChatIcerigi;
+          chatBox.scrollTop = chatBox.scrollHeight; // Yeni mesaj gelince otomatik aşağı kaydır
+        }
+      } catch (err) {
+        console.error("Mesajlar çekilemedi aga: ", err);
+      }
+    }
+
+    // 2. Mesaj formunu sayfayı yeniletmeden gönderme işlemi
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault(); // Sayfa yenilenmesini engelle aga!
+      const mesajText = mesajInput.value.trim();
+      if (!mesajText) return;
+
+      // Form verisi hazırlıyoruz
+      const formData = new FormData();
+      formData.append('mesaj', mesajText);
+
+      mesajInput.value = ''; // Input kutusunu hemen temizle
+
+      // Arka planda çaktırmadan mesajı sunucuya postalıyoruz
+      await fetch('/mesaj-gonder', {
+        method: 'POST',
+        body: formData
+      });
+
+      mesajlariGetir(); // Gönderdikten hemen sonra kutuyu güncelle
+    });
+
+    // 3. Saniyede 1 kez arka planda yeni mesaj var mı diye kontrol et (Polling)
+    setInterval(mesajlariGetir, 1000);
+
+    // Sayfa ilk açıldığında da mesajları bir kere yükle
+    mesajlariGetir();
+  </script>
 
 </body>
 
