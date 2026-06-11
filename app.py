@@ -54,7 +54,6 @@ def login():
         else:
             hata = "Böyle bir kuş yok veya şifre hatalı aga! .d"
             
-    # Mühendislik Notu: HTML karmaşasını engellemek için direkt login.html'e yönlendiriyoruz.
     return render_template('login.html', hata=hata)
 
 @app.route('/logout')
@@ -72,34 +71,45 @@ def mesaj_gonder():
     if not metin:
         return redirect(url_for('index'))
 
-    if metin.startswith('/') and user == 'Kurucu':
+    # ⚙️ MÜHENDİSLİK NOTU: Yetkili Rol Tanımlamaları
+    user_rol = guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş')
+    komut_yetkili_roller = ["Kurucu Güvercin", "Yan Admin"]
+
+    # 🛠️ GELİŞMİŞ KOMUT KONTROL SİSTEMİ
+    if metin.startswith('/') and user_rol in komut_yetkili_roller:
         parcalar = metin.split(' ')
         komut = parcalar[0].lower()
         zaman = datetime.now().strftime('%H:%M:%S')
 
+        # 1. /clear (Kurucu ve Yan Admin Yapabilir)
         if komut == '/clear':
             mesajlar = []
-            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "🧹 Kafes Kurucu tarafından tamamen süpürüldü!", "ozel_alici": None})
-            log_kayitlari.append(f"[{zaman}] 🧹 Kurucu chat geçmişini temizledi.")
+            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🧹 Kafes {user} tarafından tamamen süpürüldü!", "ozel_alici": None})
+            log_kayitlari.append(f"[{zaman}] 🧹 {user} chat geçmişini temizledi.")
             return redirect(url_for('index'))
 
+        # 2. /mute [KuşAdı] (Kurucu ve Yan Admin Yapabilir)
         elif komut == '/mute':
             if len(parcalar) > 1:
                 hedef = parcalar[1]
+                if guvercin_veritabi.get(hedef, {}).get('rol') == "Kurucu Güvercin":
+                    return redirect(url_for('index')) # Kurucu susturulamaz aga! .d
                 susturulan_kuslar.add(hedef)
-                mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🔇 {hedef} kuşu Kurucu tarafından susturuldu!", "ozel_alici": None})
-                log_kayitlari.append(f"[{zaman}] 🔇 {hedef} susturuldu.")
+                mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🔇 {hedef} kuşu {user} tarafından susturuldu!", "ozel_alici": None})
+                log_kayitlari.append(f"[{zaman}] 🔇 {hedef}, {user} tarafından susturuldu.")
             return redirect(url_for('index'))
 
+        # 3. /unmute [KuşAdı] (Kurucu ve Yan Admin Yapabilir)
         elif komut == '/unmute':
             if len(parcalar) > 1:
                 hedef = parcalar[1]
                 susturulan_kuslar.discard(hedef)
-                mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🔊 {hedef} kuşunun cezası kaldırıldı, ötebilir!", "ozel_alici": None})
-                log_kayitlari.append(f"[{zaman}] 🔊 {hedef} cezası kaldırıldı.")
+                mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🔊 {hedef} kuşunun cezası {user} tarafından kaldırıldı!", "ozel_alici": None})
+                log_kayitlari.append(f"[{zaman}] 🔊 {hedef} cezası {user} tarafından kaldırıldı.")
             return redirect(url_for('index'))
 
-        elif komut == '/slowmode':
+        # 4. /slowmode [Saniye] (Sadece SÜPER YETKİ - Kurucu Güvercin)
+        elif komut == '/slowmode' and user_rol == "Kurucu Güvercin":
             try:
                 saniye = int(parcalar[1]) if len(parcalar) > 1 else 0
                 slowmode_suresi = saniye
@@ -111,12 +121,14 @@ def mesaj_gonder():
                 pass
             return redirect(url_for('index'))
 
-        elif komut == '/system':
+        # 5. /system [Mesaj] (Sadece SÜPER YETKİ - Kurucu Güvercin)
+        elif komut == '/system' and user_rol == "Kurucu Güvercin":
             duyuru_metni = " ".join(parcalar[1:])
             if duyuru_metni:
                 mesajlar.append({"gonderen": "📢 DUYURU", "rol": "👑 Kurucu Özel", "metin": f"🚨 {duyuru_metni} 🚨", "ozel_alici": None})
             return redirect(url_for('index'))
 
+    # 🔒 /msg [KuşAdı] [Mesaj] - GİZLİ MESAJ SİSTEMİ (Herkes Kullanabilir)
     if metin.startswith('/msg'):
         parcalar = metin.split(' ')
         if len(parcalar) > 2:
@@ -124,16 +136,18 @@ def mesaj_gonder():
             ozel_mesaj = " ".join(parcalar[2:])
             mesajlar.append({
                 "gonderen": user,
-                "rol": guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş'),
+                "rol": user_rol,
                 "metin": f"🤫 (Fısıldama): {ozel_mesaj}",
                 "ozel_alici": hedef_alici
             })
         return redirect(url_for('index'))
 
+    # 🛑 SUSTURULMA KONTROLÜ
     if user in susturulan_kuslar:
         return redirect(url_for('index'))
         
-    if user != 'Kurucu' and slowmode_suresi > 0:
+    # SLOWMODE KONTROLÜ
+    if user_rol != 'Kurucu Güvercin' and slowmode_suresi > 0:
         simdi = time.time()
         son_atilan = son_mesaj_zamanlari.get(user, 0)
         if simdi - son_atilan < slowmode_suresi:
@@ -142,7 +156,7 @@ def mesaj_gonder():
 
     mesajlar.append({
         "gonderen": user,
-        "rol": guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş'),
+        "rol": user_rol,
         "metin": metin,
         "ozel_alici": None
     })
@@ -150,8 +164,11 @@ def mesaj_gonder():
 
 @app.route('/sifre-ve-rol-ver', methods=['POST'])
 def sifre_ve_rol_ver():
-    if session.get('kus_adi') != 'Kurucu':
-        return "Aga bu yetki sadece Kurucu'ya ait!", 403
+    # Güvenlik Duvarı: Sadece Kurucu Güvercin şifre/rol atayabilir!
+    aktif_user = session.get('kus_adi','')
+    if guvercin_veritabi.get(aktif_user, {}).get('rol') != 'Kurucu Güvercin':
+        return "Aga şifre yönetimi sadece Kurucu Güvercin'e aittir!", 403
+        
     isim = request.form.get('kus_adi')
     yeni_sifre = request.form.get('sifre')
     yeni_rol = request.form.get('rol_adi')
@@ -166,8 +183,11 @@ def sifre_ve_rol_ver():
 
 @app.route('/kus-sil/<string:kus_adi>', methods=['POST'])
 def kus_sil(kus_adi):
-    if session.get('kus_adi') != 'Kurucu':
-        return "Aga kuşu yuvadan sadece Kurucu atabilir!", 403
+    # Güvenlik Duvarı: Sadece Kurucu Güvercin kuş silebilir!
+    aktif_user = session.get('kus_adi','')
+    if guvercin_veritabi.get(aktif_user, {}).get('rol') != 'Kurucu Güvercin':
+        return "Aga kuşu yuvadan sadece Kurucu Güvercin atabilir!", 403
+        
     if kus_adi in guvercin_veritabi and kus_adi != 'Kurucu':
         del guvercin_veritabi[kus_adi]
     return redirect(url_for('index'))
