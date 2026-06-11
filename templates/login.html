@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Güvercin Kafesi - Giriş</title>
+  <style>
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .box {
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 90%;
+      max-width: 350px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background: #4b7bec;
+      color: white;
+      border: none;
+      padding: 12px;
+      width: 100%;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .error {
+      color: #ff4757;
+      font-size: 13px;
+      margin-bottom: 15px;
+      font-weight: bold;
+      background: #fff2f2;
+      padding: 8px;
+      border-radius: 5px;
+      border: 1px solid #ffcccb;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="box">
+    <h2>🕊️ Güvercin Kafesi Giriş</h2>
+
+    {% if hata %}
+    <div class="error">{{ hata }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <input type="text" name="kus_adi" placeholder="Güvercin Adı" required>
+      <input type="password" name="sifre" placeholder="Şifre" required>
+      <button type="submit">Kanat Çırp</button>
+    </form>
+  </div>
+</body>
+
+</html>
