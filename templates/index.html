@@ -25,24 +25,34 @@
       {% if aktif_user == 'Kurucu' %}
       <p>Kuşların şifrelerini ve rollerini belirle aga:</p>
       <form class="pigeon-form" action="/sifre-ve-rol-ver" method="POST">
-        <input type="text" name="kus_adi" placeholder="Güvercin Cinsi (Örn: Postacı)" required>
-        <input type="text" name="sifre" placeholder="Yeni Şifre (Düz Metin)" required>
-        <input type="text" name="rol_adi" placeholder="Verilecek Rol (Örn: Gökyüzü Hakimi)" required>
+        <input type="text" name="kus_adi" placeholder="Güvercin Cinsi" required>
+        <input type="text" name="sifre" placeholder="Şifre (Düz Metin)" required>
+        <input type="text" name="rol_adi" placeholder="Verilecek Rol" required>
         <button type="submit" class="btn-primary">Bilgileri Kanatlandır</button>
       </form>
       {% else %}
-      <p style="color: #7f8c8d;">⚠️ Şifre ve rol verme yetkisi sadece <strong>Kurucu</strong> güvercine aittir aga. .d
-      </p>
+      <p style="color: #7f8c8d;">⚠️ Şifre, rol verme ve kuş silme yetkisi sadece <strong>Kurucu</strong> güvercine
+        aittir aga. .d</p>
       {% endif %}
 
       <div class="rollu-kuslar" style="margin-top: 20px;">
-        <h4>📜 Kafesteki Kuşlar ve Şifreleri ({% if aktif_user == 'Kurucu' %}Görünür{% else %}Gizli{% endif %}):</h4>
+        <h4>📜 Kafesteki Kuşlar:</h4>
         <ul style="list-style: none; margin-top: 10px; padding: 0;">
           {% for isim, data in kuslar.items() %}
-          <li style="margin-bottom: 8px; border-bottom: 1px solid #f1f2f6; padding-bottom: 5px;">
-            🕊/ <strong>{{ isim }}:</strong> <span class="badge user-role">{{ data['rol'] }}</span>
-            {% if aktif_user == 'Kurucu' %}
-            <br><span style="font-size: 12px; color: #747d8c;">🔑 Şifre: <strong>{{ data['sifre'] }}</strong></span>
+          <li
+            style="margin-bottom: 12px; border-bottom: 1px solid #f1f2f6; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div>
+              🕊️ <strong>{{ isim }}:</strong> <span class="badge user-role">{{ data['rol'] }}</span>
+              {% if aktif_user == 'Kurucu' %}
+              <br><span style="font-size: 12px; color: #747d8c;">🔑 Şifre: <strong>{{ data['sifre'] }}</strong></span>
+              {% endif %}
+            </div>
+            {% if aktif_user == 'Kurucu' and isim != 'Kurucu' %}
+            <form action="/kus-sil/{{ isim }}" method="POST" style="margin: 0;">
+              <button type="submit"
+                style="background-color: #ff4757; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 11px; cursor: pointer; font-weight: bold;">❌
+                Yuvadan At</button>
+            </form>
             {% endif %}
           </li>
           {% endfor %}
@@ -76,7 +86,7 @@
   {% if aktif_user == 'Kurucu' %}
   <div class="container" style="margin-top: 0; margin-bottom: 40px;">
     <section class="panel" style="grid-column: span 2; background: #2c3e50; color: #ecf0f1;">
-      <h3 style="color: #00d2d3;">🛠️ Yuva Giriş Logları (Kurucu Özel)</h3>
+      <h3 style="color: #00d2d3;">🛠️ Yuva Giriş/Silme Logları (Kurucu Özel)</h3>
       <div
         style="max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 13px; margin-top: 10px; line-height: 1.6;">
         {% for log in logs %}
