@@ -11,60 +11,59 @@ body {
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   color: #333;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
+/* Üst Bar */
 .navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   background-color: #ffffff;
-  padding: 15px 30px;
+  padding: 15px 20px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 .logo {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: bold;
   color: #4b7bec;
-  transition: transform 0.3s ease;
 }
 
-.logo:hover {
-  transform: translateY(-3px);
-}
-
-/* Grid Yapısı */
+/* Ana Grid Yapısı */
 .container {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 20px;
+  width: 100%;
   max-width: 1200px;
-  margin: 40px auto;
-  padding: 0 20px;
+  margin: 20px auto;
+  padding: 0 15px;
+  flex: 1;
 }
 
+/* Paneller */
 .panel {
   background: #ffffff;
   border-radius: 15px;
-  padding: 25px;
+  padding: 20px;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-}
-
-.panel:hover {
-  box-shadow: 0 15px 30px rgba(75, 123, 236, 0.15);
-}
-
-.pigeon-form,
-.chat-input-area {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  margin-top: 20px;
+}
+
+.pigeon-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
 }
 
 .chat-input-area {
-  flex-direction: row;
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 input {
@@ -73,7 +72,7 @@ input {
   border: 2px solid #e2e8f0;
   border-radius: 8px;
   outline: none;
-  transition: border-color 0.3s ease;
+  font-size: 14px;
 }
 
 input:focus {
@@ -89,21 +88,16 @@ input:focus {
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
-  transition: all 0.3s ease;
+  font-size: 14px;
 }
 
 .btn-send {
-  width: 120px;
+  min-width: 90px;
 }
 
-.btn-primary:hover,
-.btn-send:hover {
-  background-color: #3867d6;
-}
-
-/* Chat Box */
+/* Canlı Chat Kutusu */
 .chat-box {
-  height: 350px;
+  height: 400px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 15px;
@@ -111,18 +105,19 @@ input:focus {
   background-color: #fafafa;
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  margin-bottom: 15px;
+  gap: 12px;
 }
 
 .message {
   padding: 10px 15px;
   border-radius: 12px;
   max-width: 85%;
-  animation: ucusEfekti 0.3s ease-out;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+  /* Uzun yazılar ekrandan taşmasın diye */
 }
 
-/* Dinamik Mesaj Konumları */
 .incoming {
   background-color: #f1f2f6;
   align-self: flex-start;
@@ -134,12 +129,13 @@ input:focus {
 }
 
 .badge {
-  font-size: 11px;
+  font-size: 10px;
   padding: 3px 8px;
   border-radius: 20px;
   color: white;
   font-weight: bold;
-  margin-right: 5px;
+  display: inline-block;
+  margin-bottom: 3px;
 }
 
 .admin-role {
@@ -150,39 +146,41 @@ input:focus {
   background-color: #ffa502;
 }
 
-@keyframes ucusEfekti {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 📱 MÜHENDİSLİK NOTU: MOBİL GÜNCELLEMESİ (RESPONSIVE) */
+/* 📱 MÜHENDİSLİK NOTU: TELEFONLAR İÇİN TAM UYUMLULUK (RESPONSIVE) */
 @media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+    padding: 12px;
+  }
+
   .container {
     grid-template-columns: 1fr;
-    /* Mobilde yan yana değil, alt alta dizilim */
-    margin: 15px auto;
+    /* Mobilde yan yana olan düzeni alt alta çekiyoruz */
+    margin: 10px auto;
+    gap: 15px;
   }
 
-  .navbar {
-    padding: 15px;
+  .chat-box {
+    height: 300px;
+    /* Küçük ekranlarda chat kutusu taşmasın diye boyutu sabitledik */
+  }
+
+  .message {
+    max-width: 90%;
+    /* Mobilde mesajlar alanı daha iyi kullansın */
+  }
+
+  .rollu-kuslar li {
     flex-direction: column;
-    gap: 10px;
-    text-align: center;
+    align-items: flex-start !important;
+    gap: 8px;
   }
 
-  .chat-input-area {
-    flex-direction: column;
-    /* Mobilde mesaj kutusu ve buton alt alta gelir */
-  }
-
-  .btn-send {
+  /* Mobilde butonun taşmasını önlemek için tam genişlik verdik */
+  .rollu-kuslar form,
+  .rollu-kuslar button {
     width: 100%;
   }
 }
