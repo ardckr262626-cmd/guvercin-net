@@ -26,47 +26,44 @@
       <p>Kuşların şifrelerini ve rollerini belirle aga:</p>
       <form class="pigeon-form" action="/sifre-ve-rol-ver" method="POST">
         <input type="text" name="kus_adi" placeholder="Güvercin Cinsi" required>
-        <input type="text" name="sifre" placeholder="Şifre (Düz Metin)" required>
+        <input type="text" name="sifre" placeholder="Şifre" required>
         <input type="text" name="rol_adi" placeholder="Verilecek Rol" required>
         <button type="submit" class="btn-primary">Bilgileri Kanatlandır</button>
       </form>
 
       <div class="guide-box"
         style="margin-top: 20px; background-color: #f7f9fa; border-left: 4px solid #4b7bec; padding: 12px; border-radius: 5px;">
-        <h4 style="color: #4b7bec; margin-bottom: 8px;">📜 Kurucu Komut Kılavuzu</h4>
-        <p style="font-size: 12px; color: #555; margin-bottom: 8px;">Aşağıdaki komutları ana chat kutusuna yazıp
-          uçurarak kafesi yönetebilirsin aga:</p>
+        <h4 style="color: #4b7bec; margin-bottom: 8px;">📜 Kurucu Gelişmiş Komutları</h4>
         <table style="width: 100%; font-size: 11px; text-align: left; border-collapse: collapse;">
           <tr style="background-color: #e2e8f0;">
             <th style="padding: 5px;">Komut</th>
             <th style="padding: 5px;">Açıklama</th>
           </tr>
           <tr>
+            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/mute [Ad]</b></td>
+            <td style="padding: 5px;">Sadece adı yazılan kuşu susturur.</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/unmute [Ad]</b></td>
+            <td style="padding: 5px;">O kuşun susturma cezasını kaldırır.</td>
+          </tr>
+          <tr>
+            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/msg [Ad] [M]</b></td>
+            <td style="padding: 5px;">Sadece o kişiye gizli mesaj yollar.</td>
+          </tr>
+          <tr>
             <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/clear</b></td>
-            <td style="padding: 5px;">Herkesin ekranındaki tüm mesajları siler.</td>
-          </tr>
-          <tr>
-            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/mute</b></td>
-            <td style="padding: 5px;">Chati kilitler. Senden başka kimse yazamaz.</td>
-          </tr>
-          <tr>
-            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/unmute</b></td>
-            <td style="padding: 5px;">Chat kilidini açar, herkes yazabilir.</td>
-          </tr>
-          <tr>
-            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/slowmode [sn]</b></td>
-            <td style="padding: 5px;">Mesaj atma aralığı koyar (Örn: <tt>/slowmode 5</tt>). Kapatmak için <tt>/slowmode
-                0</tt> yap.</td>
-          </tr>
-          <tr>
-            <td style="padding: 5px; font-family: monospace; color: #ff4757;"><b>/system [mesaj]</b></td>
-            <td style="padding: 5px;">Chate kalın ve dikkat çekici sistem duyurusu geçer.</td>
+            <td style="padding: 5px;">Tüm chati herkes için temizler.</td>
           </tr>
         </table>
       </div>
       {% else %}
-      <p style="color: #7f8c8d;">⚠️ Şifre, rol verme ve kuş silme yetkisi sadece <strong>Kurucu</strong> güvercine
-        aittir aga. .d</p>
+      <div class="guide-box"
+        style="margin-top: 20px; background-color: #f7f9fa; border-left: 4px solid #ffa502; padding: 12px; border-radius: 5px;">
+        <h4 style="color: #ffa502; margin-bottom: 5px;">🤫 Gizli Mesaj Sistemi</h4>
+        <p style="font-size: 11px; color: #555;">Chate <tt><b>/msg KuşAdı mesajın</b></tt> yazarak sadece o kuşa gidecek
+          gizli fısıldamalar atabilirsin aga! .d</p>
+      </div>
       {% endif %}
 
       <div class="rollu-kuslar" style="margin-top: 20px;">
@@ -77,17 +74,9 @@
             style="margin-bottom: 12px; border-bottom: 1px solid #f1f2f6; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
             <div>
               🕊️ <strong>{{ isim }}:</strong> <span class="badge user-role">{{ data['rol'] }}</span>
-              {% if aktif_user == 'Kurucu' %}
-              <br><span style="font-size: 12px; color: #747d8c;">🔑 Şifre: <strong>{{ data['sifre'] }}</strong></span>
-              {% endif %}
+              {% if isim in susturulanlar %}<span
+                style="color: #ff4757; font-size: 11px; font-weight: bold;">[MUTED]</span>{% endif %}
             </div>
-            {% if aktif_user == 'Kurucu' and isim != 'Kurucu' %}
-            <form action="/kus-sil/{{ isim }}" method="POST" style="margin: 0;">
-              <button type="submit"
-                style="background-color: #ff4757; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 11px; cursor: pointer; font-weight: bold;">❌
-                Yuvadan At</button>
-            </form>
-            {% endif %}
           </li>
           {% endfor %}
         </ul>
@@ -97,47 +86,33 @@
     <section class="panel chat-panel">
       <h3>💬 Mesaj Kafesi (Canlı Akış ⚡)</h3>
       <div class="chat-box" id="chatBox">
-        {% if not mesajlar %}
-        <p style="text-align: center; color: #aaa; margin-top: 100px;">Kafeste henüz ses yok... İlk ötüşü sen başlat
-          aga! :D</p>
-        {% endif %}
         {% for msg in mesajlar %}
+        {% if msg.ozel_alici == None or msg.ozel_alici == aktif_user or msg.gonderen == aktif_user %}
         <div class="message {% if msg.gonderen == aktif_user %}outgoing{% else %}incoming{% endif %}" {% if
           msg.gonderen=='📢 DUYURU'
           %}style="background: #fff2f2; border: 2px solid #ff4757; max-width: 100%; width: 100%; text-align: center; color: #ff4757;"
-          {% endif %}>
+          {% endif %} {% if msg.ozel_alici==aktif_user or msg.gonderen==aktif_user and msg.ozel_alici !=None
+          %}style="background: #fff9db; border: 1px dashed #ffa502; color: #b7791f;" {% endif %}>
+
           {% if msg.gonderen != '📢 DUYURU' and msg.gonderen != 'SİSTEM' %}
           <span class="badge {% if msg.gonderen == 'Kurucu' %}admin-role{% else %}user-role{% endif %}">{{ msg.rol
             }}</span>
           {% endif %}
           <strong>{{ msg.gonderen }}:</strong> {{ msg.metin }}
         </div>
+        {% endif %}
         {% endfor %}
       </div>
 
       <form class="chat-input-area" id="chatForm">
         <input type="text" id="mesajInput"
-          placeholder="{% if chat_susturuldu and aktif_user != 'Kurucu' %}🔇 Chat şu an kilitli aga...{% else %}Mesajını veya komutunu uçur...{% endif %}"
-          required autocomplete="off" {% if chat_susturuldu and aktif_user !='Kurucu' %}disabled{% endif %}>
-        <button type="submit" class="btn-send" {% if chat_susturuldu and aktif_user !='Kurucu' %}disabled
-          style="background:#ccc;" {% endif %}>🕊️ Uçur</button>
+          placeholder="{% if aktif_user in susturulanlar %}🔇 Cezalısın aga, ötemezsin!{% else %}Mesajını veya komutunu uçur...{% endif %}"
+          required autocomplete="off" {% if aktif_user in susturulanlar %}disabled{% endif %}>
+        <button type="submit" class="btn-send" {% if aktif_user in susturulanlar %}disabled style="background:#ccc;" {%
+          endif %}>🕊️ Uçur</button>
       </form>
     </section>
   </main>
-
-  {% if aktif_user == 'Kurucu' %}
-  <div class="container" style="margin-top: 0; margin-bottom: 40px;">
-    <section class="panel" style="grid-column: span 2; background: #2c3e50; color: #ecf0f1;">
-      <h3 style="color: #00d2d3;">🛠️ Yuva Giriş/Silme Logları (Kurucu Özel)</h3>
-      <div
-        style="max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 13px; margin-top: 10px; line-height: 1.6;">
-        {% for log in logs %}
-        <p>> {{ log }}</p>
-        {% endfor %}
-      </div>
-    </section>
-  </div>
-  {% endif %}
 
   <script>
     const chatBox = document.getElementById('chatBox');
@@ -148,23 +123,21 @@
       try {
         const response = await fetch('/');
         const htmlText = await response.text();
-
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlText, 'text/html');
         const gelenKutu = doc.getElementById('chatBox');
         const gelenInput = doc.getElementById('mesajInput');
 
-        // Chat kutusunu yenile
         if (gelenKutu && chatBox.innerHTML !== gelenKutu.innerHTML) {
           chatBox.innerHTML = gelenKutu.innerHTML;
           chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // Mute durumunda input alanını canlı kilitle/aç (Kurucu hariç)
-        if ("{{ aktif_user }}" !== "Kurucu" && gelenInput && mesajInput) {
+        // Canlı mute yeme durumunda inputu anlık kilitler aga
+        if (gelenInput && mesajInput) {
           if (gelenInput.hasAttribute('disabled') && !mesajInput.hasAttribute('disabled')) {
             mesajInput.setAttribute('disabled', 'true');
-            mesajInput.placeholder = "🔇 Chat şu an kilitli aga...";
+            mesajInput.placeholder = "🔇 Cezalısın aga, ötemezsin!";
             document.querySelector('.btn-send').setAttribute('disabled', 'true');
             document.querySelector('.btn-send').style.background = "#ccc";
           } else if (!gelenInput.hasAttribute('disabled') && mesajInput.hasAttribute('disabled')) {
@@ -174,9 +147,7 @@
             document.querySelector('.btn-send').style.background = "#4b7bec";
           }
         }
-      } catch (err) {
-        console.error("Hata aga:", err);
-      }
+      } catch (err) { console.error(err); }
     }
 
     chatForm.addEventListener('submit', async (e) => {
@@ -188,18 +159,13 @@
       formData.append('mesaj', mesajText);
       mesajInput.value = '';
 
-      await fetch('/mesaj-gonder', {
-        method: 'POST',
-        body: formData
-      });
-
+      await fetch('/mesaj-gonder', { method: 'POST', body: formData });
       mesajlariGetir();
     });
 
     setInterval(mesajlariGetir, 1000);
     chatBox.scrollTop = chatBox.scrollHeight;
   </script>
-
 </body>
 
 </html>

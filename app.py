@@ -16,10 +16,10 @@ guvercin_veritabi = {
 mesajlar = []
 log_kayitlari = []
 
-# ⚙️ MÜHENDİSLİK NOTU: Gelişmiş Komut Değişkenleri
-chat_susturuldu = False
-slowmode_suresi = 0  # Saniye cinsinden (0 ise kapalı)
-son_mesaj_zamanlari = {}  # Kullanıcıların son mesaj atma vakitleri
+# ⚙️ MÜHENDİSLİK NOTU: Kişiye Özel Gelişmiş Komut Değişkenleri
+susturulan_kuslar = set() # Susturulan kullanıcıların isimlerini tutar
+slowmode_suresi = 0  
+son_mesaj_zamanlari = {}  
 
 @app.route('/')
 def index():
@@ -37,7 +37,7 @@ def index():
                            aktif_user=aktif,
                            mevcut_rol=guvercin_veritabi[aktif]['rol'],
                            logs=log_kayitlari,
-                           chat_susturuldu=chat_susturuldu,
+                           susturulanlar=susturulan_kuslar,
                            slowmode=slowmode_suresi)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -81,7 +81,7 @@ def logout():
 
 @app.route('/mesaj-gonder', methods=['POST'])
 def mesaj_gonder():
-    global chat_susturuldu, slowmode_suresi, mesajlar, log_kayitlari
+    global slowmode_suresi, mesajlar, log_kayitlari
     
     metin = request.form.get('mesaj', '').strip()
     user = session.get('kus_adi', 'Yabancı Kuş')
@@ -95,76 +95,92 @@ def mesaj_gonder():
         komut = parcalar[0].lower()
         zaman = datetime.now().strftime('%H:%M:%S')
 
-        # 1. /clear Komutu
+        # 1. /clear
         if komut == '/clear':
             mesajlar = []
-            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "🧹 Kafes Kurucu tarafından tamamen süpürüldü!"})
+            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "🧹 Kafes Kurucu tarafından tamamen süpürüldü!", "ozel_alici": None})
             log_kayitlari.append(f"[{zaman}] 🧹 Kurucu chat geçmişini temizledi.")
             return redirect(url_for('index'))
 
-        # 2. /mute Komutu
+        # 2. /mute [KuşAdı] (Kişiye Özel)
         elif komut == '/mute':
-            chat_susturuldu = True
-            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "🔇 Kafes Kurucu tarafından susturuldu. Sadece Kurucu ötebilir!"})
-            log_kayitlari.append(f"[{zaman}] 🔇 Chat susturuldu.")
+            if len(parcalar) > 1:
+                hedef = parcalar[1]
+                susturulan_kuslar.add(hedef)
+                mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🔇 {hedef} kuşu Kurucu tarafından susturuldu!", "ozel_alici": None})
+                log_kayitlari.append(f"[{zaman}] 🔇 {hedef} susturuldu.")
             return redirect(url_for('index'))
 
-        # 3. /unmute Komutu
+        # 3. /unmute [KuşAdı] (Kişiye Özel)
         elif komut == '/unmute':
-            chat_susturuldu = False
-            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "🔊 Kafesin kilidi açıldı, tüm kuşlar özgürce ötebilir!"})
-            log_kayitlari.append(f"[{zaman}] 🔊 Chat kilidi açıldı.")
+            if len(parcalar) > 1:
+                hedef = parcalar[1]
+                susturulan_kuslar.discard(hedef)
+                mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🔊 {hedef} kuşunun cezası kaldırıldı, ötebilir!", "ozel_alici": None})
+                log_kayitlari.append(f"[{zaman}] 🔊 {hedef} cezası kaldırıldı.")
             return redirect(url_for('index'))
 
-        # 4. /slowmode [saniye] Komutu
+        # 4. /slowmode [saniye]
         elif komut == '/slowmode':
             try:
                 saniye = int(parcalar[1]) if len(parcalar) > 1 else 0
                 slowmode_suresi = saniye
                 if saniye > 0:
-                    mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"⏳ Yavaş mod aktif edildi! Kuşlar {saniye} saniyede bir mesaj atabilir."})
-                    log_kayitlari.append(f"[{zaman}] ⏳ Yavaş mod {saniye}sn olarak ayarlandı.")
+                    mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"⏳ Yavaş mod aktif! Kuşlar {saniye} saniyede bir yazabilir.", "ozel_alici": None})
                 else:
-                    mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "⚡ Yavaş mod kaldırıldı. Akış serbest!"})
-                    log_kayitlari.append(f"[{zaman}] ⚡ Yavaş mod kapatıldı.")
+                    mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "⚡ Yavaş mod kaldırıldı.", "ozel_alici": None})
             except ValueError:
                 pass
             return redirect(url_for('index'))
 
-        # 5. /system [mesaj] Komutu
+        # 5. /system [mesaj]
         elif komut == '/system':
             duyuru_metni = " ".join(parcalar[1:])
             if duyuru_metni:
-                mesajlar.append({"gonderen": "📢 DUYURU", "rol": "👑 Kurucu Özel", "metin": f"🚨 {duyuru_metni} 🚨"})
+                mesajlar.append({"gonderen": "📢 DUYURU", "rol": "👑 Kurucu Özel", "metin": f"🚨 {duyuru_metni} 🚨", "ozel_alici": None})
             return redirect(url_for('index'))
 
-    # 🛑 NORMAL KULLANICI KISITLAMALARI KONTROLÜ
-    if user != 'Kurucu':
-        # Chat susturuldu mu kontrolü
-        if chat_susturuldu:
-            return redirect(url_for('index'))
+    # 🔒 /msg [KuşAdı] [Mesaj] - KİŞİYE ÖZEL MESAJ SİSTEMİ (Herkes Kullanabilir)
+    if metin.startswith('/msg'):
+        parcalar = metin.split(' ')
+        if len(parcalar) > 2:
+            hedef_alici = parcalar[1]
+            ozel_mesaj = " ".join(parcalar[2:])
             
-        # Slowmode (Yavaş Mod) kontrolü
-        if slowmode_suresi > 0:
-            simdi = time.time()
-            son_atilan = son_mesaj_zamanlari.get(user, 0)
-            if simdi - son_atilan < slowmode_suresi:
-                # Süre dolmadıysa engelle, direkt sayfaya yönlendir
-                return redirect(url_for('index'))
-            son_mesaj_zamanlari[user] = simdi
+            # Mesaj listesine ozel_alici filtresini ekleyerek fırlatıyoruz aga
+            mesajlar.append({
+                "gonderen": user,
+                "rol": guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş'),
+                "metin": f"🤫 (Fısıldama): {ozel_mesaj}",
+                "ozel_alici": hedef_alici
+            })
+        return redirect(url_for('index'))
 
-    # Normal Mesaj Gönderme İşlemi
+    # 🛑 SUSTURULMA KONTROLÜ
+    if user in susturulan_kuslar:
+        return redirect(url_for('index'))
+        
+    # SLOWMODE KONTROLÜ
+    if user != 'Kurucu' and slowmode_suresi > 0:
+        simdi = time.time()
+        son_atilan = son_mesaj_zamanlari.get(user, 0)
+        if simdi - son_atilan < slowmode_suresi:
+            return redirect(url_for('index'))
+        son_mesaj_zamanlari[user] = simdi
+
+    # Normal Genel Mesaj Gönderme
     mesajlar.append({
         "gonderen": user,
         "rol": guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş'),
-        "metin": metin
+        "metin": metin,
+        "ozel_alici": None
     })
     return redirect(url_for('index'))
 
 @app.route('/sifre-ve-rol-ver', methods=['POST'])
 def sifre_ve_rol_ver():
     if session.get('kus_adi') != 'Kurucu':
-        return "Aga bu yetki sadece Kurucu Güvercin'e ait! .d", 403
+        return "Aga bu yetki sadece Kurucu'ya ait!", 403
     isim = request.form.get('kus_adi')
     yeni_sifre = request.form.get('sifre')
     yeni_rol = request.form.get('rol_adi')
@@ -175,20 +191,14 @@ def sifre_ve_rol_ver():
             guvercin_veritabi[isim]['sifre'] = yeni_sifre
         if yeni_rol:
             guvercin_veritabi[isim]['rol'] = yeni_rol
-        zaman = datetime.now().strftime('%H:%M:%S')
-        log_kayitlari.append(f"[{zaman}] 👑 Kurucu, {isim} kuşunun bilgilerini güncelledi.")
     return redirect(url_for('index'))
 
 @app.route('/kus-sil/<string:kus_adi>', methods=['POST'])
 def kus_sil(kus_adi):
     if session.get('kus_adi') != 'Kurucu':
-        return "Aga kuşu yuvadan sadece Kurucu atabilir! .d", 403
-    if kus_adi == 'Kurucu':
-        return "Aga kendi kendini yuvadan atamazsın! :D", 400
-    if kus_adi in guvercin_veritabi:
+        return "Aga kuşu yuvadan sadece Kurucu atabilir!", 403
+    if kus_adi in guvercin_veritabi and kus_adi != 'Kurucu':
         del guvercin_veritabi[kus_adi]
-        zaman = datetime.now().strftime('%H:%M:%S')
-        log_kayitlari.append(f"❌ {kus_adi} kuşu Kurucu tarafından sepetlendi.")
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
