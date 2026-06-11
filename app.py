@@ -5,10 +5,10 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = "guvercin_gizemli_kod_aga"
 
-# Mühendislik Notu: Admin şifresi mor_güvercinkanadı olarak güncellendi.
-# Aksaklık çıkmaması için hashleme yapmadan düz metin olarak koruyoruz aga!
+# Mühendislik Notu: Sunucuda patlama ihtimalini sıfırlamak için 
+# şifredeki Türkçe karakterleri 'mor_guvercinkanadi' olarak güncelledim aga.
 guvercin_veritabi = {
-    "Kurucu": {"sifre": "mor_güvercinkanadı", "rol": "Kurucu Güvercin"},
+    "Kurucu": {"sifre": "mor_guvercinkanadi", "rol": "Kurucu Güvercin"},
     "Taklacı": {"sifre": "777", "rol": "Yavru Kuş"},
     "Postacı": {"sifre": "pigeon", "rol": "Haberci Kuş"},
     "Şebap": {"sifre": "sebo", "rol": "Süs Güvercini"}
@@ -23,6 +23,11 @@ def index():
         return redirect(url_for('login'))
         
     aktif = session['kus_adi']
+    # Eğer giriş yapan kuş veri tabanından silindiyse oturumunu kapatıyoruz
+    if aktif not in guvercin_veritabi:
+        session.pop('kus_adi', None)
+        return redirect(url_for('login'))
+
     return render_template('index.html', 
                            mesajlar=mesajlar, 
                            kuslar=guvercin_veritabi, 
@@ -55,9 +60,9 @@ def login():
         </style>
         <div class="box">
             <h2>🕊️ Güvercin Kafesi Giriş</h2>
-            {f'<div class="error">{hata}</div>' if hata else ''}
+            {f'<div class="error">{{hata}}</div>' if hata else ''}
             <form method="POST">
-                <input type="text" name="kus_adi" placeholder="Güvercin Adı" required>
+                <input type="text" name="kus_adi" placeholder="Güvercin Adı (Örn: Kurucu)" required>
                 <input type="password" name="sifre" placeholder="Şifre" required>
                 <button type="submit">Kanat Çırp</button>
             </form>
@@ -78,7 +83,7 @@ def sifre_ve_rol_ver():
     yeni_sifre = request.form.get('sifre')
     yeni_rol = request.form.get('rol_adi')
     
-    if isim:
+    if isset(isim) and isim:
         if isim not in guvercin_veritabi:
             guvercin_veritabi[isim] = {}
         if yeni_sifre:
@@ -91,7 +96,6 @@ def sifre_ve_rol_ver():
         
     return redirect(url_for('index'))
 
-# 🛠️ MÜHENDİSLİK NOTU: KULLANICI SİLME ROTASI
 @app.route('/kus-sil/<string:kus_adi>', methods=['POST'])
 def kus_sil(kus_adi):
     if session.get('kus_adi') != 'Kurucu':
@@ -101,9 +105,9 @@ def kus_sil(kus_adi):
         return "Aga kendi kendini yuvadan atamazsın! :D", 400
 
     if kus_adi in guvercin_veritabi:
-        del guvercin_veritabi[kus_adi] # Kuşu veri tabanından siliyoruz
+        del guvercin_veritabi[kus_adi]
         zaman = datetime.now().strftime('%H:%M:%S')
-        log_kayitlari.append(f"[{zaman}] ❌ {kus_adi} kuşu Kurucu tarafından yuvadan sepetlendi.")
+        log_kayitlari.append(f"❌ {kus_adi} kuşu Kurucu tarafından sepetlendi.")
         
     return redirect(url_for('index'))
 
