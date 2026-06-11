@@ -3,84 +3,105 @@ import os
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = "guvercin_gizli_anahtar_aga" # Session (oturum) için gerekli
+app.secret_key = "guvercin_gizemli_kod_aga"
 
-# Hafıza Veri Tabanımız
-kullanici_rolleri = {
-    "Arda": "Taklacı Güvercin",
-    "Admin": "Kurucu Güvercin"
+# Mühendislik Notu: İsimleri direkt güvercin cinsleri yaptık aga!
+# Hashleme yok, şifreler düz metin (plain text) olarak hafızada duruyor.
+guvercin_veritabi = {
+    "Kurucu": {"sifre": "1234", "rol": "Kurucu Güvercin"},
+    "Taklacı": {"sifre": "777", "rol": "Yavru Kuş"},
+    "Postacı": {"sifre": "pigeon", "rol": "Haberci Kuş"},
+    "Şebap": {"sifre": "sebo", "rol": "Süs Güvercini"}
 }
 
-# Mühendislik Notu: Giriş mesajlarını kaldırdık, liste boş başlıyor. Sadece en son konuşulanlar kalacak!
 mesajlar = []
-log_kayitlari = [] # Sadece Admin'in görebileceği giriş logları
+log_kayitlari = []
 
 @app.route('/')
 def index():
-    # Kullanıcı giriş yapmadıysa direkt giriş sayfasına fırlat aga
-    if 'kullanici' not in session:
+    if 'kus_adi' not in session:
         return redirect(url_for('login'))
         
+    aktif = session['kus_adi']
     return render_template('index.html', 
                            mesajlar=mesajlar, 
-                           roller=kullanici_rolleri, 
-                           aktif_user=session['kullanici'],
-                           mevcut_rol=kullanici_rolleri.get(session['kullanici'], 'Yavru Kuş'),
+                           kuslar=guvercin_veritabi, 
+                           aktif_user=aktif,
+                           mevcut_rol=guvercin_veritabi[aktif]['rol'],
                            logs=log_kayitlari)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    hata = None
     if request.method == 'POST':
-        kullanici = request.form.get('kullanici_adi')
-        if kullanici:
-            session['kullanici'] = kullanici
-            if kullanici not in kullanici_rolleri:
-                kullanici_rolleri[kullanici] = "Yavru Kuş" # Yeni gelene varsayılan rol
-                
-            # Mühendislik Notu: Log kaydını zaman damgası (Timestamp) ile tutuyoruz
+        isim = request.form.get('kus_adi')
+        sifre = request.form.get('sifre')
+        
+        # Kullanıcı kayıtlı mı ve şifresi doğru mu kontrolü
+        if isim in guvercin_veritabi and guvercin_veritabi[isim]['sifre'] == sifre:
+            session['kus_adi'] = isim
             zaman = datetime.now().strftime('%H:%M:%S')
-            log_kayitlari.append(f"[{zaman}] 🕊️ {kullanici} sisteme kanat çırptı (Giriş yaptı).")
-            
+            log_kayitlari.append(f"[{zaman}] 🕊️ {isim} kuşu doğru şifreyle kafese süzüldü.")
             return redirect(url_for('index'))
-    return '''
+        else:
+            hata = "Böyle bir kuş yok veya şifre hatalı aga! .d"
+            
+    return f'''
         <style>
-            body{ background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin:0;}
-            .box{ background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 350px;}
-            input{ width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box;}
-            button{ background: #4b7bec; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer;}
+            body{{ background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin:0;}}
+            .box{{ background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 350px;}}
+            input{{ width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box;}}
+            button{{ background: #4b7bec; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px;}}
+            .error{{ color: #ff4757; font-size: 13px; margin-bottom: 10px; }}
         </style>
         <div class="box">
-            <h2>🕊️ Güvercin.Net'e Giriş</h2>
-            <form method="POST"><input type="text" name="kullanici_adi" placeholder="Kullanıcı Adınız" required><button type="submit">Uçuşu Başlat</button></form>
+            <h2>🕊️ Güvercin Kafesi Giriş</h2>
+            {f'<div class="error">{hata}</div>' if hata else ''}
+            <form method="POST">
+                <input type="text" name="kus_adi" placeholder="Güvercin Adı (Örn: Kurucu, Taklacı)" required>
+                <input type="password" name="sifre" placeholder="Şifre" required>
+                <button type="submit">Kanat Çırp</button>
+            </form>
         </div>
     '''
 
 @app.route('/logout')
 def logout():
-    session.pop('kullanici', None)
+    session.pop('kus_adi', None)
     return redirect(url_for('login'))
 
-@app.route('/rol-ver', methods=['POST'])
-def rol_ver():
-    if session.get('kullanici') != 'Admin':
-        return "Aga burası sadece Admin'e özel! .d", 403
+@app.route('/sifre-ve-rol-ver', methods=['POST'])
+def sifre_ve_rol_ver():
+    # Sadece Kurucu Güvercin şifre ve rol dağıtabilir!
+    if session.get('kus_adi') != 'Kurucu':
+        return "Aga şifreleri sadece Kurucu Güvercin belirleyebilir! .d", 403
         
-    kullanici = request.form.get('kullanici_adi')
+    isim = request.form.get('kus_adi')
+    yeni_sifre = request.form.get('sifre')
     yeni_rol = request.form.get('rol_adi')
-    if kullanici and yeni_rol:
-        kullanici_rolleri[kullanici] = yeni_rol
+    
+    if isim:
+        if isim not in guvercin_veritabi:
+            guvercin_veritabi[isim] = {}
+        if yeni_sifre:
+            guvercin_veritabi[isim]['sifre'] = yeni_sifre
+        if yeni_rol:
+            guvercin_veritabi[isim]['rol'] = yeni_rol
+            
+        zaman = datetime.now().strftime('%H:%M:%S')
+        log_kayitlari.append(f"[{zaman}] 👑 Kurucu, {isim} kuşunun bilgilerini güncelledi.")
+        
     return redirect(url_for('index'))
 
 @app.route('/mesaj-gonder', methods=['POST'])
 def mesaj_gonder():
     metin = request.form.get('mesaj')
-    user = session.get('kullanici', 'Anonim')
+    user = session.get('kus_adi', 'Yabancı Kuş')
     if metin:
         mesajlar.append({
             "gonderen": user,
-            "rol": kullanici_rolleri.get(user, "Yavru Kuş"),
-            "metin": metin,
-            "tip": "outgoing" if user == session.get('kullanici') else "incoming"
+            "rol": guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş'),
+            "metin": metin
         })
     return redirect(url_for('index'))
 
