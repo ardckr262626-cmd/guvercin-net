@@ -1,14 +1,19 @@
-import json
 import os
 import time
 import threading
 from datetime import datetime
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
-from werkzeug.security import check_password_hash, generate_password_hash
+from dotenv import load_dotenv
+from supabase import create_client
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROLES_PATH = os.path.join(BASE_DIR, 'roles.json')
+# .env dosyasını oku
+load_dotenv()
+
+# Supabase bağlantısını kur
+url = os.environ.get("SUPABASE_URL")
+key = os.environ.get("SUPABASE_KEY")
+supabase = create_client(url, key)
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.config.update(
@@ -28,48 +33,56 @@ muted_users = set()
 slowmode_seconds = 0
 last_message_times = {}
 
-DEFAULT_ROLES = {
-    'Kurucu': {
-        'sifre': 'scrypt:32768:8:1$iKJ05TDLhVXQoyTq$86170f6c8af0ebffae7ad630868ff49f2a1b2b660dfca610609ce26848976b13e1ede9538634287e036a4bcb3cf0199af9d48ac19bbab33b25a1c6560f61b0a9',
-        'rol': 'Kurucu Güvercin',
-    },
-    'Taklacı': {
-        'sifre': 'scrypt:32768:8:1$vLePnQ7GahIkVCx1$b441781a51a10024c0fe5ffcc242f6f3f24f85997940b5861b88481550f35e48423377d76eabcd8625d0377487340966d63ab0e6f1d8c3405157f15dc204c715',
-        'rol': 'Yavru Kuş',
-    },
-    'Postacı': {
-        'sifre': 'scrypt:32768:8:1$OVmnvCMQ0nGsaats$9c2cf36bfa019a7fd79e948d7feb277b9023d02ae4a0f70460c7c18a72671a4b250dd51d5ebda0c8a47e7120ca788c141570a4f92525807d66bf6199fff10ecd',
-        'rol': 'Haberci Kuş',
-    },
-    'Şebap': {
-        'sifre': 'scrypt:32768:8:1$Pwn7xVjBYm65mM9a$726826f42f28337139227d24bced2de78a236ad016191ec74400c120f80ec421ee13d2b5fbcb13da15b5bcdc28b4ba0f22b503b3dee55a7ccbd304e1c58a3f90',
-        'rol': 'Süs Güvercini',
-    },
-}
-
-
-def ensure_roles_file():
-    if not os.path.exists(ROLES_PATH):
-        with state_lock:
-            if not os.path.exists(ROLES_PATH):
-                with open(ROLES_PATH, 'w', encoding='utf-8') as file:
-                    json.dump(DEFAULT_ROLES, file, ensure_ascii=False, indent=2)
-
-
 def load_roles():
-    ensure_roles_file()
-    with open(ROLES_PATH, 'r', encoding='utf-8') as file:
-        return json.load(file)
-
-
-def save_roles(roles):
-    with state_lock:
-        with open(ROLES_PATH, 'w', encoding='utf-8') as file:
-            json.dump(roles, file, ensure_ascii=False, indent=2)
+    try:
+        response = supabase.table("kuslar").select("id, isim, sifre, rol").execute()
+        if hasattr(response, "error") and response.error:
+            print(f"Supabase yükleme hatası: {response.error}")
+            return {}
+        return {item['isim']: {'sifre': item['sifre'], 'rol': item['rol']} for item in response.data or []}
+    except Exception as e:
+        print(f"Supabase kuş verisi çekilirken hata oluştu: {e}")
+        return {}
 
 
 def get_user_data(username):
-    return load_roles().get(username)
+    try:
+        response = supabase.table("kuslar").select("id, isim, sifre, rol").eq("isim", username).single().execute()
+        if hasattr(response, "error") and response.error:
+            print(f"Supabase kullanıcı verisi hatası: {response.error}")
+            return None
+        return response.data
+    except Exception as e:
+        print(f"Supabase kullanıcı çekilirken hata oluştu: {e}")
+        return None
+
+
+def upsert_user(name, password, role):
+    try:
+        response = supabase.table("kuslar").upsert({
+            "isim": name,
+            "sifre": password,
+            "rol": role,
+        }).execute()
+        if hasattr(response, "error") and response.error:
+            print(f"Supabase kullanıcı kaydetme hatası ({name}): {response.error}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Supabase kullanıcı kaydetme hatası: {e}")
+        return False
+
+
+def delete_user(name):
+    try:
+        response = supabase.table("kuslar").delete().eq("isim", name).execute()
+        if hasattr(response, "error") and response.error:
+            print(f"Supabase kullanıcı silme hatası ({name}): {response.error}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Supabase kullanıcı silme hatası: {e}")
+        return False
 
 
 def get_user_role(username):
@@ -141,13 +154,15 @@ def login():
         name = request.form.get('kus_adi', '').strip()
         password = request.form.get('sifre', '').strip()
         user = get_user_data(name)
+        print(f"DEBUG: Veritabanından gelen veri -> {user}")
 
-        if user and user['sifre'] == password:
+        if user and user.get('sifre') == password:
             session['kus_adi'] = name
             add_log(f'🕊️ {name} kuşu doğru şifreyle kafese süzüldü.')
             return redirect(url_for('index'))
+        
         error = 'Giriş başarısız. Kullanıcı adı veya şifre hatalı.'
-
+        
     return render_template('login.html', hata=error)
 
 
@@ -256,13 +271,16 @@ def sifre_ve_rol_ver():
             index += 1
         name = f'Anonim_{index}'
 
-    roles = load_roles()
-    user_data = roles.setdefault(name, {})
     if password:
-        user_data['sifre'] = generate_password_hash(password)
-    user_data['rol'] = role
-    save_roles(roles)
-    add_log(f'🔐 {user} kullanıcısı için şifre ve rol güncellendi: {name}')
+        password_value = password
+    else:
+        password_value = ''
+
+    if upsert_user(name, password_value, role):
+        add_log(f'🔐 {user} kullanıcısı için şifre ve rol güncellendi: {name}')
+    else:
+        print(f"Kullanıcı güncelleme başarısız oldu: {name}")
+
     return redirect(url_for('index'))
 
 
@@ -272,11 +290,11 @@ def kus_sil(kus_adi):
     if not is_kurucu(user):
         return abort(403, 'Sadece Kurucu Güvercin kuş silebilir.')
 
-    roles = load_roles()
-    if kus_adi in roles and kus_adi != 'Kurucu':
-        roles.pop(kus_adi, None)
-        save_roles(roles)
-        add_log(f'❌ {kus_adi} yuvadan atıldı.')
+    if kus_adi != 'Kurucu':
+        if delete_user(kus_adi):
+            add_log(f'❌ {kus_adi} yuvadan atıldı.')
+        else:
+            print(f"Kuş silme işlemi başarısız oldu: {kus_adi}")
     return redirect(url_for('index'))
 
 
