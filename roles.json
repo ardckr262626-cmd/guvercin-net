@@ -1,18 +1,18 @@
 {
   "Kurucu": {
-    "sifre": "scrypt:32768:8:1$iKJ05TDLhVXQoyTq$86170f6c8af0ebffae7ad630868ff49f2a1b2b660dfca610609ce26848976b13e1ede9538634287e036a4bcb3cf0199af9d48ac19bbab33b25a1c6560f61b0a9",
+    "sifre": "mor_guvercinkanadi",
     "rol": "Kurucu Güvercin"
   },
   "Taklacı": {
-    "sifre": "scrypt:32768:8:1$vLePnQ7GahIkVCx1$b441781a51a10024c0fe5ffcc242f6f3f24f85997940b5861b88481550f35e48423377d76eabcd8625d0377487340966d63ab0e6f1d8c3405157f15dc204c715",
+    "sifre": "taklaci_sifresi",
     "rol": "Yavru Kuş"
   },
   "Postacı": {
-    "sifre": "scrypt:32768:8:1$OVmnvCMQ0nGsaats$9c2cf36bfa019a7fd79e948d7feb277b9023d02ae4a0f70460c7c18a72671a4b250dd51d5ebda0c8a47e7120ca788c141570a4f92525807d66bf6199fff10ecd",
+    "sifre": "postaci_sifresi",
     "rol": "Haberci Kuş"
   },
   "Şebap": {
-    "sifre": "scrypt:32768:8:1$Pwn7xVjBYm65mM9a$726826f42f28337139227d24bced2de78a236ad016191ec74400c120f80ec421ee13d2b5fbcb13da15b5bcdc28b4ba0f22b503b3dee55a7ccbd304e1c58a3f90",
+    "sifre": "sebap_sifresi",
     "rol": "Süs Güvercini"
   }
 }
