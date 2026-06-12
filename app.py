@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import threading
 from datetime import datetime
@@ -6,6 +7,7 @@ from datetime import datetime
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
 from dotenv import load_dotenv
 from supabase import create_client
+from werkzeug.security import check_password_hash, generate_password_hash
 
 # .env dosyasını oku
 load_dotenv()
@@ -33,13 +35,37 @@ muted_users = set()
 slowmode_seconds = 0
 last_message_times = {}
 
+
+def clean_input(value):
+    return re.sub(r"[^A-Za-z0-9ğüşöçıİĞÜŞÖÇ\s_-]", "", (value or "").strip())
+
+
+def hash_password(password):
+    if not password:
+        return ""
+    return generate_password_hash(password, method="pbkdf2:sha256", salt_length=16)
+
+
+def verify_password(password, stored_hash):
+    if not password or not stored_hash:
+        return False
+
+    if stored_hash.startswith(("pbkdf2:", "sha256:", "bcrypt:", "scrypt:")):
+        try:
+            return check_password_hash(stored_hash, password)
+        except ValueError:
+            return False
+
+    return password == stored_hash
+
+
 def load_roles():
     try:
-        response = supabase.table("kuslar").select("id, isim, sifre, rol").execute()
+        response = supabase.table("kuslar").select("id, isim, rol").execute()
         if hasattr(response, "error") and response.error:
             print(f"Supabase yükleme hatası: {response.error}")
             return {}
-        return {item['isim']: {'sifre': item['sifre'], 'rol': item['rol']} for item in response.data or []}
+        return {item['isim']: {'rol': item['rol']} for item in response.data or []}
     except Exception as e:
         print(f"Supabase kuş verisi çekilirken hata oluştu: {e}")
         return {}
@@ -47,19 +73,19 @@ def load_roles():
 
 def load_kuslar():
     try:
-        response = supabase.table("kuslar").select("id, isim, sifre, rol").execute()
+        response = supabase.table("kuslar").select("id, isim, rol").execute()
         if hasattr(response, "error") and response.error:
             print(f"Supabase kuş listesi hatası: {response.error}")
             return []
         return response.data or []
     except Exception as e:
-        print(f"Supabase kuş listesi çekilirken hata oluştu: {e}")
+        print(f"Supabase kuş listisi çekilirken hata oluştu: {e}")
         return []
 
 
 def get_all_kuslar():
     try:
-        response = supabase.table("kuslar").select("*").execute()
+        response = supabase.table("kuslar").select("id, isim, rol").execute()
         if hasattr(response, "error") and response.error:
             raise RuntimeError(response.error)
         return response.data or []
@@ -99,10 +125,14 @@ def get_user_data(username):
 
 
 def upsert_user(name, password, role):
+    name = clean_input(name)
+    role = clean_input(role) or 'Yavru Kuş'
+    password_hash = hash_password(password)
+
     try:
         response = supabase.table("kuslar").upsert({
             "isim": name,
-            "sifre": password,
+            "sifre": password_hash,
             "rol": role,
         }).execute()
         if hasattr(response, "error") and response.error:
@@ -169,9 +199,6 @@ def secure_headers(response):
 
 @app.route('/')
 def index():
-    kuslar = supabase.table("kuslar").select("*").execute().data
-    print(f"DEBUG: Veritabanından gelen kuş sayısı: {len(kuslar)}")
-    print(f"DEBUG: Gelen veri: {kuslar}")
     active_user = session.get('kus_adi')
     roles = load_roles()
     kuslar_list = load_kuslar()
@@ -200,9 +227,8 @@ def login():
         name = request.form.get('kus_adi', '').strip()
         password = request.form.get('sifre', '').strip()
         user = get_user_data(name)
-        print(f"DEBUG: Veritabanından gelen veri -> {user}")
 
-        if user and user.get('sifre') == password:
+        if user and verify_password(password, user.get('sifre', '')):
             session['kus_adi'] = name
             add_log(f'🕊️ {name} kuşu doğru şifreyle kafese süzüldü.')
             return redirect(url_for('index'))
