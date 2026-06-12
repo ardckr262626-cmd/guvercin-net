@@ -130,17 +130,19 @@ def upsert_user(name, password, role):
     password_hash = hash_password(password)
 
     try:
-        response = supabase.table("kuslar").insert({
+        data = {
             "isim": name,
             "sifre": password_hash,
             "rol": role,
-        }).execute()
+        }
+        response = supabase.table("kuslar").insert(data).execute()
+        print("Başarılı:", response.data)
         if hasattr(response, "error") and response.error:
             print(f"Supabase kullanıcı kaydetme hatası ({name}): {response.error}")
             return False
         return True
     except Exception as e:
-        print(f"Supabase kullanıcı kaydetme hatası: {e}")
+        print("Hata var aga:", str(e))
         return False
 
 
