@@ -45,6 +45,30 @@ def load_roles():
         return {}
 
 
+def load_kuslar():
+    try:
+        response = supabase.table("kuslar").select("id, isim, sifre, rol").execute()
+        if hasattr(response, "error") and response.error:
+            print(f"Supabase kuş listesi hatası: {response.error}")
+            return []
+        return response.data or []
+    except Exception as e:
+        print(f"Supabase kuş listesi çekilirken hata oluştu: {e}")
+        return []
+
+
+def delete_kus_by_id(kus_id):
+    try:
+        response = supabase.table("kuslar").delete().eq("id", kus_id).execute()
+        if hasattr(response, "error") and response.error:
+            print(f"Supabase kuş silme hatası: {response.error}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Supabase kuş silme hatası: {e}")
+        return False
+
+
 def get_user_data(username):
     try:
         response = supabase.table("kuslar").select("id, isim, sifre, rol").eq("isim", username).single().execute()
@@ -130,6 +154,7 @@ def secure_headers(response):
 def index():
     active_user = session.get('kus_adi')
     roles = load_roles()
+    kuslar_list = load_kuslar()
 
     if not active_user or active_user not in roles:
         session.pop('kus_adi', None)
@@ -139,6 +164,7 @@ def index():
         'index.html',
         mesajlar=messages,
         kuslar=roles,
+        kuslar_list=kuslar_list,
         aktif_user=active_user,
         mevcut_rol=roles[active_user]['rol'],
         logs=logs,
@@ -170,6 +196,22 @@ def login():
 def logout():
     session.pop('kus_adi', None)
     return redirect(url_for('login'))
+
+
+@app.route('/kus-sil/<int:kus_id>', methods=['POST'])
+def kus_sil(kus_id):
+    active_user = session.get('kus_adi')
+    if not active_user or not is_kurucu(active_user):
+        abort(403)
+
+    current_user = get_user_data(active_user)
+    if current_user and current_user.get('id') == kus_id:
+        abort(400)
+
+    if delete_kus_by_id(kus_id):
+        add_log(f'🗑️ {active_user} yuvadan bir kuş attı: id={kus_id}')
+
+    return redirect(url_for('index'))
 
 
 @app.route('/mesaj-gonder', methods=['POST'])
@@ -281,20 +323,6 @@ def sifre_ve_rol_ver():
     else:
         print(f"Kullanıcı güncelleme başarısız oldu: {name}")
 
-    return redirect(url_for('index'))
-
-
-@app.route('/kus-sil/<string:kus_adi>', methods=['POST'])
-def kus_sil(kus_adi):
-    user = session.get('kus_adi')
-    if not is_kurucu(user):
-        return abort(403, 'Sadece Kurucu Güvercin kuş silebilir.')
-
-    if kus_adi != 'Kurucu':
-        if delete_user(kus_adi):
-            add_log(f'❌ {kus_adi} yuvadan atıldı.')
-        else:
-            print(f"Kuş silme işlemi başarısız oldu: {kus_adi}")
     return redirect(url_for('index'))
 
 

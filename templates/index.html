@@ -104,20 +104,20 @@
       <div class="rollu-kuslar" style="margin-top: 20px;">
         <h4>📜 Kafesteki Kuşlar:</h4>
         <ul style="list-style: none; margin-top: 10px; padding: 0;">
-          {% for isim, data in kuslar.items() %}
+          {% for kus in kuslar_list %}
           <li
             style="margin-bottom: 12px; border-bottom: 1px solid #f1f2f6; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
             <div>
-              🕊️ <strong>{{ isim }}:</strong> <span class="badge user-role">{{ data['rol'] }}</span>
-              {% if isim in susturulanlar %}<span
+              🕊️ <strong>{{ kus.isim }}:</strong> <span class="badge user-role">{{ kus.rol }}</span>
+              {% if kus.isim in susturulanlar %}<span
                 style="color: #ff4757; font-size: 11px; font-weight: bold;">[MUTED]</span>{% endif %}
 
               {% if mevcut_rol == 'Kurucu Güvercin' %}
-              <br><span style="font-size: 12px; color: #747d8c;">🔑 Şifre: <strong>{{ data['sifre'] }}</strong></span>
+              <br><span style="font-size: 12px; color: #747d8c;">🔑 Şifre: <strong>{{ kus.sifre }}</strong></span>
               {% endif %}
             </div>
-            {% if mevcut_rol == 'Kurucu Güvercin' and isim != 'Kurucu' %}
-            <form action="/kus-sil/{{ isim }}" method="POST" style="margin: 0;">
+            {% if mevcut_rol == 'Kurucu Güvercin' and kus.isim != 'Kurucu' %}
+            <form action="/kus-sil/{{ kus.id }}" method="POST" style="margin: 0;">
               <button type="submit"
                 style="background-color: #ff4757; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 11px; cursor: pointer; font-weight: bold;">❌
                 Yuvadan At</button>
