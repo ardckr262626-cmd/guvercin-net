@@ -179,52 +179,67 @@
     const chatBox = document.getElementById('chatBox');
     const chatForm = document.getElementById('chatForm');
     const mesajInput = document.getElementById('mesajInput');
+    const sendButton = document.querySelector('.btn-send');
+    const activeUser = '{{ aktif_user }}';
 
-    async function mesajlariGetir() {
+    function setInputState(disabled) {
+      mesajInput.disabled = disabled;
+      sendButton.disabled = disabled;
+      sendButton.style.background = disabled ? '#ccc' : '#4b7bec';
+      mesajInput.placeholder = disabled ? '🔇 Cezalısın aga, ötemezsin!' : 'Mesajını veya komutunu uçur...';
+    }
+
+    async function refreshChat() {
       try {
-        const response = await fetch('/');
-        const htmlText = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlText, 'text/html');
-        const gelenKutu = doc.getElementById('chatBox');
-        const gelenInput = doc.getElementById('mesajInput');
+        const response = await fetch('/mesajlar');
+        if (!response.ok) {
+          return;
+        }
 
-        if (gelenKutu && chatBox.innerHTML !== gelenKutu.innerHTML) {
-          chatBox.innerHTML = gelenKutu.innerHTML;
+        const data = await response.json();
+        const currentHtml = chatBox.innerHTML;
+        const newHtml = data.mesajlar
+          .map((msg) => {
+            const isPrivate = msg.ozel_alici !== null && msg.ozel_alici !== activeUser && msg.gonderen !== activeUser;
+            if (isPrivate) {
+              return '';
+            }
+            const isOutgoing = msg.gonderen === activeUser;
+            const badgeClass = msg.rol === 'Kurucu Güvercin' || msg.rol === 'Yan Admin' ? 'admin-role' : 'user-role';
+            const rolespan = msg.gonderen !== '📢 DUYURU' && msg.gonderen !== 'SİSTEM' ? `<span class="badge ${badgeClass}">${msg.rol}</span> ` : '';
+            const specialStyle = msg.gonderen === '📢 DUYURU' ? 'style="background: #fff2f2; border: 2px solid #ff4757; max-width: 100%; width: 100%; text-align: center; color: #ff4757;"' : '';
+            const privateClass = msg.ozel_alici === activeUser || msg.gonderen === activeUser ? 'style="background: #fff9db; border: 1px dashed #ffa502; color: #b7791f;"' : '';
+            return `<div class="message ${isOutgoing ? 'outgoing' : 'incoming'}" ${specialStyle} ${privateClass}>${rolespan}<strong>${msg.gonderen}:</strong> ${msg.metin}</div>`;
+          })
+          .join('');
+
+        if (newHtml && currentHtml !== newHtml) {
+          chatBox.innerHTML = newHtml;
           chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        if ("{{ mevcut_rol }}" !== "Kurucu Güvercin" && gelenInput && mesajInput) {
-          if (gelenInput.hasAttribute('disabled') && !mesajInput.hasAttribute('disabled')) {
-            mesajInput.setAttribute('disabled', 'true');
-            mesajInput.placeholder = "🔇 Cezalısın aga, ötemezsin!";
-            document.querySelector('.btn-send').setAttribute('disabled', 'true');
-            document.querySelector('.btn-send').style.background = "#ccc";
-          } else if (!gelenInput.hasAttribute('disabled') && mesajInput.hasAttribute('disabled')) {
-            mesajInput.removeAttribute('disabled');
-            mesajInput.placeholder = "Mesajını veya komutunu uçur...";
-            document.querySelector('.btn-send').removeAttribute('disabled');
-            document.querySelector('.btn-send').style.background = "#4b7bec";
-          }
-        }
-      } catch (err) { console.error(err); }
+        const isMuted = data.susturulanlar.includes(activeUser);
+        setInputState(isMuted);
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     chatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const mesajText = mesajInput.value.trim();
-      if (!mesajText) return;
+      const messageText = mesajInput.value.trim();
+      if (!messageText) return;
 
       const formData = new FormData();
-      formData.append('mesaj', mesajText);
+      formData.append('mesaj', messageText);
       mesajInput.value = '';
 
       await fetch('/mesaj-gonder', { method: 'POST', body: formData });
-      mesajlariGetir();
+      await refreshChat();
     });
 
-    setInterval(mesajlariGetir, 1000);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    refreshChat();
+    setInterval(refreshChat, 1000);
   </script>
 </body>
 

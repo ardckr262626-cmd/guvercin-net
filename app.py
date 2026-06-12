@@ -1,198 +1,294 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+import json
 import os
-from datetime import datetime
 import time
+import threading
+from datetime import datetime
 
-app = Flask(__name__)
-app.secret_key = "guvercin_gizemli_kod_aga"
+from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
-guvercin_veritabi = {
-    "Kurucu": {"sifre": "mor_guvercinkanadi", "rol": "Kurucu Güvercin"},
-    "Taklacı": {"sifre": "777", "rol": "Yavru Kuş"},
-    "Postacı": {"sifre": "pigeon", "rol": "Haberci Kuş"},
-    "Şebap": {"sifre": "sebo", "rol": "Süs Güvercini"}
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROLES_PATH = os.path.join(BASE_DIR, 'roles.json')
+
+app = Flask(__name__, static_folder='static', template_folder='templates')
+app.config.update(
+    SECRET_KEY=os.environ.get('SECRET_KEY', 'change-this-in-production'),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=os.environ.get('SESSION_COOKIE_SECURE', '0') == '1',
+    PREFERRED_URL_SCHEME='https',
+    DEBUG=False,
+    ENV='production',
+)
+
+state_lock = threading.Lock()
+messages = []
+logs = []
+muted_users = set()
+slowmode_seconds = 0
+last_message_times = {}
+
+DEFAULT_ROLES = {
+    'Kurucu': {
+        'sifre': 'scrypt:32768:8:1$iKJ05TDLhVXQoyTq$86170f6c8af0ebffae7ad630868ff49f2a1b2b660dfca610609ce26848976b13e1ede9538634287e036a4bcb3cf0199af9d48ac19bbab33b25a1c6560f61b0a9',
+        'rol': 'Kurucu Güvercin',
+    },
+    'Taklacı': {
+        'sifre': 'scrypt:32768:8:1$vLePnQ7GahIkVCx1$b441781a51a10024c0fe5ffcc242f6f3f24f85997940b5861b88481550f35e48423377d76eabcd8625d0377487340966d63ab0e6f1d8c3405157f15dc204c715',
+        'rol': 'Yavru Kuş',
+    },
+    'Postacı': {
+        'sifre': 'scrypt:32768:8:1$OVmnvCMQ0nGsaats$9c2cf36bfa019a7fd79e948d7feb277b9023d02ae4a0f70460c7c18a72671a4b250dd51d5ebda0c8a47e7120ca788c141570a4f92525807d66bf6199fff10ecd',
+        'rol': 'Haberci Kuş',
+    },
+    'Şebap': {
+        'sifre': 'scrypt:32768:8:1$Pwn7xVjBYm65mM9a$726826f42f28337139227d24bced2de78a236ad016191ec74400c120f80ec421ee13d2b5fbcb13da15b5bcdc28b4ba0f22b503b3dee55a7ccbd304e1c58a3f90',
+        'rol': 'Süs Güvercini',
+    },
 }
 
-mesajlar = []
-log_kayitlari = []
 
-susturulan_kuslar = set()  
-slowmode_suresi = 0        
-son_mesaj_zamanlari = {}   
+def ensure_roles_file():
+    if not os.path.exists(ROLES_PATH):
+        with state_lock:
+            if not os.path.exists(ROLES_PATH):
+                with open(ROLES_PATH, 'w', encoding='utf-8') as file:
+                    json.dump(DEFAULT_ROLES, file, ensure_ascii=False, indent=2)
+
+
+def load_roles():
+    ensure_roles_file()
+    with open(ROLES_PATH, 'r', encoding='utf-8') as file:
+        return json.load(file)
+
+
+def save_roles(roles):
+    with state_lock:
+        with open(ROLES_PATH, 'w', encoding='utf-8') as file:
+            json.dump(roles, file, ensure_ascii=False, indent=2)
+
+
+def get_user_data(username):
+    return load_roles().get(username)
+
+
+def get_user_role(username):
+    user = get_user_data(username)
+    return user['rol'] if user else 'Yavru Kuş'
+
+
+def is_kurucu(username):
+    return get_user_role(username) == 'Kurucu Güvercin'
+
+
+def is_admin(username):
+    return get_user_role(username) in {'Kurucu Güvercin', 'Yan Admin'}
+
+
+def add_log(message):
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    with state_lock:
+        logs.append(f'[{timestamp}] {message}')
+        if len(logs) > 100:
+            del logs[:-100]
+
+
+def add_message(sender, role, text, recipient=None):
+    with state_lock:
+        messages.append({
+            'gonderen': sender,
+            'rol': role,
+            'metin': text,
+            'ozel_alici': recipient,
+        })
+        if len(messages) > 200:
+            del messages[:-200]
+
+
+@app.after_request
+def secure_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'same-origin'
+    return response
+
 
 @app.route('/')
 def index():
-    if 'kus_adi' not in session:
-        return redirect(url_for('login'))
-        
-    aktif = session['kus_adi']
-    if aktif not in guvercin_veritabi:
+    active_user = session.get('kus_adi')
+    roles = load_roles()
+
+    if not active_user or active_user not in roles:
         session.pop('kus_adi', None)
         return redirect(url_for('login'))
 
-    return render_template('index.html', 
-                           mesajlar=mesajlar, 
-                           kuslar=guvercin_veritabi, 
-                           aktif_user=aktif,
-                           mevcut_rol=guvercin_veritabi[aktif]['rol'],
-                           logs=log_kayitlari,
-                           susturulanlar=susturulan_kuslar,
-                           slowmode=slowmode_suresi)
+    return render_template(
+        'index.html',
+        mesajlar=messages,
+        kuslar=roles,
+        aktif_user=active_user,
+        mevcut_rol=roles[active_user]['rol'],
+        logs=logs,
+        susturulanlar=muted_users,
+        slowmode=slowmode_seconds,
+    )
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    hata = None
+    error = None
     if request.method == 'POST':
-        isim = request.form.get('kus_adi')
-        sifre = request.form.get('sifre')
-        
-        if isim in guvercin_veritabi and guvercin_veritabi[isim]['sifre'] == sifre:
-            session['kus_adi'] = isim
-            zaman = datetime.now().strftime('%H:%M:%S')
-            log_kayitlari.append(f"[{zaman}] 🕊️ {isim} kuşu doğru şifreyle kafese süzüldü.")
+        name = request.form.get('kus_adi', '').strip()
+        password = request.form.get('sifre', '').strip()
+        user = get_user_data(name)
+
+        if user and check_password_hash(user['sifre'], password):
+            session['kus_adi'] = name
+            add_log(f'🕊️ {name} kuşu doğru şifreyle kafese süzüldü.')
             return redirect(url_for('index'))
-        else:
-            hata = "Böyle bir kuş yok veya şifre hatalı aga! .d"
-            
-    return render_template('login.html', hata=hata)
+        error = 'Giriş başarısız. Kullanıcı adı veya şifre hatalı.'
+
+    return render_template('login.html', hata=error)
+
 
 @app.route('/logout')
 def logout():
     session.pop('kus_adi', None)
     return redirect(url_for('login'))
 
+
 @app.route('/mesaj-gonder', methods=['POST'])
 def mesaj_gonder():
-    global slowmode_suresi, mesajlar, log_kayitlari
-    
-    metin = request.form.get('mesaj', '').strip()
-    user = session.get('kus_adi', 'Yabancı Kuş')
-    
-    if not metin:
+    global slowmode_seconds
+    text = request.form.get('mesaj', '').strip()
+    user = session.get('kus_adi')
+
+    if not user or not text:
         return redirect(url_for('index'))
 
-    user_rol = guvercin_veritabi.get(user, {}).get('rol', 'Yavru Kuş')
-    komut_yetkili_roller = ["Kurucu Güvercin", "Yan Admin"]
+    roles = load_roles()
+    role = roles.get(user, {}).get('rol', 'Yavru Kuş')
 
-    if metin.startswith('/') and user_rol in komut_yetkili_roller:
-        parcalar = metin.split(' ')
-        komut = parcalar[0].lower()
-        zaman = datetime.now().strftime('%H:%M:%S')
+    if text.startswith('/') and is_admin(user):
+        parts = text.split()
+        command = parts[0].lower()
 
-        if komut == '/clear':
-            mesajlar = []
-            mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🧹 Kafes {user} tarafından tamamen süpürüldü!", "ozel_alici": None})
-            log_kayitlari.append(f"[{zaman}] 🧹 {user} chat geçmişini temizledi.")
+        if command == '/clear':
+            messages.clear()
+            add_message('SİSTEM', '🛡️ Otomasyon', f'🧹 Kafes {user} tarafından tamamen süpürüldü!')
+            add_log(f'🧹 {user} chat geçmişini temizledi.')
             return redirect(url_for('index'))
 
-        elif komut == '/mute':
-            if len(parcalar) > 1:
-                hedef = parcalar[1]
-                if guvercin_veritabi.get(hedef, {}).get('rol') == "Kurucu Güvercin":
-                    return redirect(url_for('index')) 
-                susturulan_kuslar.add(hedef)
-                mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🔇 {hedef} kuşu {user} tarafından susturuldu!", "ozel_alici": None})
-                log_kayitlari.append(f"[{zaman}] 🔇 {hedef}, {user} tarafından susturuldu.")
+        if command == '/mute' and len(parts) > 1:
+            target = parts[1]
+            if load_roles().get(target, {}).get('rol') != 'Kurucu Güvercin':
+                muted_users.add(target)
+                add_message('SİSTEM', '🛡️ Otomasyon', f'🔇 {target} kuşu {user} tarafından susturuldu!')
+                add_log(f'🔇 {target}, {user} tarafından susturuldu.')
             return redirect(url_for('index'))
 
-        elif komut == '/unmute':
-            if len(parcalar) > 1:
-                hedef = parcalar[1]
-                susturulan_kuslar.discard(hedef)
-                mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"🔊 {hedef} kuşunun cezası {user} tarafından kaldırıldı!", "ozel_alici": None})
-                log_kayitlari.append(f"[{zaman}] 🔊 {hedef} cezası {user} tarafından kaldırıldı.")
+        if command == '/unmute' and len(parts) > 1:
+            target = parts[1]
+            muted_users.discard(target)
+            add_message('SİSTEM', '🛡️ Otomasyon', f'🔊 {target} kuşunun cezası {user} tarafından kaldırıldı!')
+            add_log(f'🔊 {target} cezası {user} tarafından kaldırıldı.')
             return redirect(url_for('index'))
 
-        elif komut == '/slowmode' and user_rol == "Kurucu Güvercin":
+        if command == '/slowmode' and is_kurucu(user):
             try:
-                saniye = int(parcalar[1]) if len(parcalar) > 1 else 0
-                slowmode_suresi = saniye
-                if saniye > 0:
-                    mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": f"⏳ Yavaş mod aktif! Kuşlar {saniye} saniyede bir yazabilir.", "ozel_alici": None})
-                else:
-                    mesajlar.append({"gonderen": "SİSTEM", "rol": "🛡️ Otomasyon", "metin": "⚡ Yavaş mod kaldırıldı.", "ozel_alici": None})
+                slowmode_seconds = int(parts[1]) if len(parts) > 1 else 0
             except ValueError:
-                pass
+                slowmode_seconds = 0
+            notice = (
+                f'⏳ Yavaş mod aktif! Kuşlar {slowmode_seconds} saniyede bir yazabilir.'
+                if slowmode_seconds > 0
+                else '⚡ Yavaş mod kaldırıldı.'
+            )
+            add_message('SİSTEM', '🛡️ Otomasyon', notice)
             return redirect(url_for('index'))
 
-        elif komut == '/system' and user_rol == "Kurucu Güvercin":
-            duyuru_metni = " ".join(parcalar[1:])
-            if duyuru_metni:
-                mesajlar.append({"gonderen": "📢 DUYURU", "rol": "👑 Kurucu Özel", "metin": f"🚨 {duyuru_metni} 🚨", "ozel_alici": None})
+        if command == '/system' and is_kurucu(user):
+            announcement = ' '.join(parts[1:]).strip()
+            if announcement:
+                add_message('📢 DUYURU', '👑 Kurucu Özel', f'🚨 {announcement} 🚨')
             return redirect(url_for('index'))
 
-    if metin.startswith('/msg'):
-        parcalar = metin.split(' ')
-        if len(parcalar) > 2:
-            hedef_alici = parcalar[1]
-            ozel_mesaj = " ".join(parcalar[2:])
-            mesajlar.append({
-                "gonderen": user,
-                "rol": user_rol,
-                "metin": f"🤫 (Fısıldama): {ozel_mesaj}",
-                "ozel_alici": hedef_alici
-            })
+    if text.startswith('/msg'):
+        parts = text.split()
+        if len(parts) > 2:
+            target = parts[1]
+            private_text = ' '.join(parts[2:]).strip()
+            if private_text:
+                add_message(user, role, f'🤫 (Fısıldama): {private_text}', recipient=target)
         return redirect(url_for('index'))
 
-    if user in susturulan_kuslar:
+    if user in muted_users:
         return redirect(url_for('index'))
-        
-    if user_rol != 'Kurucu Güvercin' and slowmode_suresi > 0:
-        simdi = time.time()
-        son_atilan = son_mesaj_zamanlari.get(user, 0)
-        if simdi - son_atilan < slowmode_suresi:
-            return redirect(url_for('index'))
-        son_mesaj_zamanlari[user] = simdi
 
-    mesajlar.append({
-        "gonderen": user,
-        "rol": user_rol,
-        "metin": metin,
-        "ozel_alici": None
-    })
+    if role != 'Kurucu Güvercin' and slowmode_seconds > 0:
+        now = time.time()
+        last = last_message_times.get(user, 0)
+        if now - last < slowmode_seconds:
+            return redirect(url_for('index'))
+        last_message_times[user] = now
+
+    add_message(user, role, text)
     return redirect(url_for('index'))
 
-# ⚙️ MÜHENDİSLİK NOTU: Güncellenmiş Çakışma Önleyicili Şifre/Rol Atama Fonksiyonu
+
 @app.route('/sifre-ve-rol-ver', methods=['POST'])
 def sifre_ve_rol_ver():
-    aktif_user = session.get('kus_adi','')
-    if guvercin_veritabi.get(aktif_user, {}).get('rol') != 'Kurucu Güvercin':
-        return "Aga şifre yönetimi sadece Kurucu Güvercin'e aittir!", 403
-        
-    isim = request.form.get('kus_adi', '').strip()
-    yeni_sifre = request.form.get('sifre', '').strip()
-    yeni_rol = request.form.get('rol_adi', '').strip()
-    
-    if os.environ.get("FLASK_ENV") != "production" and isim.lower() == "test":
-         isim = "TestKusu"
+    user = session.get('kus_adi')
+    if not is_kurucu(user):
+        return abort(403, 'Şifre yönetimi sadece Kurucu Güvercin içindir.')
 
-    if isim:
-        # Anonim çakışmalarını önlemek için otomatik sayaç sistemi devrede aga
-        if isim.lower() == 'anonim':
-            sayac = 1
-            while f"Anonim_{sayac}" in guvercin_veritabi:
-                sayac += 1
-            isim = f"Anonim_{sayac}"  
+    name = request.form.get('kus_adi', '').strip()
+    password = request.form.get('sifre', '').strip()
+    role = request.form.get('rol_adi', '').strip() or 'Yavru Kuş'
 
-        if isim not in guvercin_veritabi:
-            guvercin_veritabi[isim] = {}
-        if yeni_sifre:
-            guvercin_veritabi[isim]['sifre'] = yeni_sifre
-        if yeni_rol:
-            guvercin_veritabi[isim]['rol'] = yeni_rol
-            
+    if not name:
+        return redirect(url_for('index'))
+
+    if name.lower() == 'anonim':
+        index = 1
+        roles = load_roles()
+        while f'Anonim_{index}' in roles:
+            index += 1
+        name = f'Anonim_{index}'
+
+    roles = load_roles()
+    user_data = roles.setdefault(name, {})
+    if password:
+        user_data['sifre'] = generate_password_hash(password)
+    user_data['rol'] = role
+    save_roles(roles)
+    add_log(f'🔐 {user} kullanıcısı için şifre ve rol güncellendi: {name}')
     return redirect(url_for('index'))
+
 
 @app.route('/kus-sil/<string:kus_adi>', methods=['POST'])
 def kus_sil(kus_adi):
-    aktif_user = session.get('kus_adi','')
-    if guvercin_veritabi.get(aktif_user, {}).get('rol') != 'Kurucu Güvercin':
-        return "Aga kuşu yuvadan sadece Kurucu Güvercin atabilir!", 403
-        
-    if kus_adi in guvercin_veritabi and kus_adi != 'Kurucu':
-        del guvercin_veritabi[kus_adi]
+    user = session.get('kus_adi')
+    if not is_kurucu(user):
+        return abort(403, 'Sadece Kurucu Güvercin kuş silebilir.')
+
+    roles = load_roles()
+    if kus_adi in roles and kus_adi != 'Kurucu':
+        roles.pop(kus_adi, None)
+        save_roles(roles)
+        add_log(f'❌ {kus_adi} yuvadan atıldı.')
     return redirect(url_for('index'))
 
+
+@app.route('/mesajlar')
+def mesajlar_json():
+    active_user = session.get('kus_adi')
+    return jsonify(
+        mesajlar=[message for message in messages if message['ozel_alici'] is None or message['ozel_alici'] == active_user or message['gonderen'] == active_user],
+        susturulanlar=list(muted_users),
+    )
+
+
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
