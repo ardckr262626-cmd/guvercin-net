@@ -152,6 +152,9 @@ def secure_headers(response):
 
 @app.route('/')
 def index():
+    kuslar = supabase.table("kuslar").select("*").execute().data
+    print(f"DEBUG: Veritabanından gelen kuş sayısı: {len(kuslar)}")
+    print(f"DEBUG: Gelen veri: {kuslar}")
     active_user = session.get('kus_adi')
     roles = load_roles()
     kuslar_list = load_kuslar()
