@@ -57,6 +57,23 @@ def load_kuslar():
         return []
 
 
+def get_all_kuslar():
+    try:
+        response = supabase.table("kuslar").select("*").execute()
+        if hasattr(response, "error") and response.error:
+            raise RuntimeError(response.error)
+        return response.data or []
+    except Exception as e:
+        print(f"Supabase kuş listesini çekerken hata oluştu: {e}")
+        return []
+
+
+@app.route('/api/kuslar')
+def api_kuslar():
+    kuslar = get_all_kuslar()
+    return jsonify({"kuslar": kuslar})
+
+
 def delete_kus_by_id(kus_id):
     try:
         response = supabase.table("kuslar").delete().eq("id", kus_id).execute()

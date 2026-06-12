@@ -101,31 +101,9 @@
       </div>
       {% endif %}
 
-      <div class="rollu-kuslar" style="margin-top: 20px;">
+      <div id="kus-listesi" class="rollu-kuslar" style="margin-top: 20px;">
         <h4>📜 Kafesteki Kuşlar:</h4>
-        <ul style="list-style: none; margin-top: 10px; padding: 0;">
-          {% for kus in kuslar_list %}
-          <li
-            style="margin-bottom: 12px; border-bottom: 1px solid #f1f2f6; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-            <div>
-              🕊️ <strong>{{ kus.isim }}:</strong> <span class="badge user-role">{{ kus.rol }}</span>
-              {% if kus.isim in susturulanlar %}<span
-                style="color: #ff4757; font-size: 11px; font-weight: bold;">[MUTED]</span>{% endif %}
-
-              {% if mevcut_rol == 'Kurucu Güvercin' %}
-              <br><span style="font-size: 12px; color: #747d8c;">🔑 Şifre: <strong>{{ kus.sifre }}</strong></span>
-              {% endif %}
-            </div>
-            {% if mevcut_rol == 'Kurucu Güvercin' and kus.isim != 'Kurucu' %}
-            <form action="/kus-sil/{{ kus.id }}" method="POST" style="margin: 0;">
-              <button type="submit"
-                style="background-color: #ff4757; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 11px; cursor: pointer; font-weight: bold;">❌
-                Yuvadan At</button>
-            </form>
-            {% endif %}
-          </li>
-          {% endfor %}
-        </ul>
+        <div class="kus-loading" style="padding: 12px 0; color: #555; font-size: 14px;">Kuş verileri yükleniyor...</div>
       </div>
     </section>
 
@@ -238,8 +216,69 @@
       await refreshChat();
     });
 
+    async function kuslariGetir() {
+      try {
+        const response = await fetch('/api/kuslar');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+        }
+
+        const payload = await response.json();
+        const kuslar = Array.isArray(payload.kuslar) ? payload.kuslar : [];
+        console.log('Supabase kuş verisi:', kuslar);
+        renderKusListesi(kuslar);
+      } catch (error) {
+        console.error('Kuşları çekerken hata oluştu:', error);
+        const listContainer = document.getElementById('kus-listesi');
+        if (listContainer) {
+          listContainer.innerHTML = `<div style="color:#ff4757; padding:12px;">Kuş verisi yüklenirken hata oluştu. Konsolu kontrol edin.</div>`;
+        }
+      }
+    }
+
+    function renderKusListesi(kuslar) {
+      const listContainer = document.getElementById('kus-listesi');
+      if (!listContainer) return;
+
+      if (!Array.isArray(kuslar) || kuslar.length === 0) {
+        listContainer.innerHTML = '<div style="padding: 12px; color: #555;">Kayıtlı kuş bulunamadı.</div>';
+        return;
+      }
+
+      const rows = kuslar
+        .map((kus) => `
+          <tr>
+            <td>${kus.id ?? ''}</td>
+            <td>${kus.isim ?? ''}</td>
+            <td>${kus.rol ?? ''}</td>
+            <td>${kus.sifre ?? ''}</td>
+          </tr>
+        `)
+        .join('');
+
+      listContainer.innerHTML = `
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse: collapse; font-size: 14px;">
+            <thead>
+              <tr style="background:#f1f2f6; text-align:left;">
+                <th style="padding:10px; border-bottom:1px solid #dfe4ea;">ID</th>
+                <th style="padding:10px; border-bottom:1px solid #dfe4ea;">İsim</th>
+                <th style="padding:10px; border-bottom:1px solid #dfe4ea;">Rol</th>
+                <th style="padding:10px; border-bottom:1px solid #dfe4ea;">Şifre</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
     refreshChat();
+    kuslariGetir();
     setInterval(refreshChat, 1000);
+    setInterval(kuslariGetir, 10000);
   </script>
 </body>
 
