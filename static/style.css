@@ -184,3 +184,25 @@ input:focus {
     width: 100%;
   }
 }
+
+
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  /* Bu çok önemli, kutu modelini düzeltir */
+  width: 100%;
+  overflow-x: hidden;
+  /* Yatay kaydırmayı engeller */
+}
+
+.container {
+  max-width: 1200px;
+  /* İçeriğin çok yayılmasını engeller */
+  margin: 0 auto;
+  /* Ortalar */
+  display: flex;
+  /* Eğer yan yana diziyorsan */
+  flex-wrap: wrap;
+  /* Ekran küçülünce alt satıra atar */
+}
