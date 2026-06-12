@@ -142,11 +142,11 @@ def login():
         password = request.form.get('sifre', '').strip()
         user = get_user_data(name)
 
-        if user and check_password_hash(user['sifre'], password):
-            session['kus_adi'] = name
-            add_log(f'🕊️ {name} kuşu doğru şifreyle kafese süzüldü.')
-            return redirect(url_for('index'))
-        error = 'Giriş başarısız. Kullanıcı adı veya şifre hatalı.'
+       if user and user['sifre'] == password:
+    session['kus_adi'] = name
+    add_log(f'🕊️ {name} kuşu doğru şifreyle kafese süzüldü.')
+    return redirect(url_for('index'))
+error = 'Giriş başarısız. Kullanıcı adı veya şifre hatalı.'
 
     return render_template('login.html', hata=error)
 
