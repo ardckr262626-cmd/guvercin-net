@@ -130,7 +130,7 @@ def upsert_user(name, password, role):
     password_hash = hash_password(password)
 
     try:
-        response = supabase.table("kuslar").upsert({
+        response = supabase.table("kuslar").insert({
             "isim": name,
             "sifre": password_hash,
             "rol": role,
