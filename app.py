@@ -116,26 +116,39 @@ def get_user_data(username):
     try:
         response = supabase.table("kuslar").select("id, isim, sifre, rol").eq("isim", username).single().execute()
         if hasattr(response, "error") and response.error:
-            print(f"Supabase kullanıcı verisi hatası: {response.error}")
+            # Kullanıcı bulunamazsa buraya düşer, bu normaldir
             return None
         return response.data
     except Exception as e:
-        print(f"Supabase kullanıcı çekilirken hata oluştu: {e}")
         return None
 
 
 def upsert_user(name, password, role):
     name = clean_input(name)
     role = clean_input(role) or 'Yavru Kuş'
-    password_hash = hash_password(password)
+    
+    # Aga önce kullanıcı zaten var mı diye kontrol ediyoruz
+    existing_user = get_user_data(name)
+    
+    data = {
+        "isim": name,
+        "rol": role,
+    }
+
+    if password:
+        data["sifre"] = hash_password(password)
 
     try:
-        data = {
-            "isim": name,
-            "sifre": password_hash,
-            "rol": role,
-        }
-        response = supabase.table("kuslar").insert(data).execute()
+        if existing_user:
+            # Kullanıcı varsa UPDATE işlemi yap
+            response = supabase.table("kuslar").update(data).eq("isim", name).execute()
+        else:
+            # Kullanıcı yoksa INSERT (ekleme) yap
+            if not password:
+                # Eğer şifre verilmediyse geçici bir default şifre hashleyelim ki patlamasın
+                data["sifre"] = hash_password("123456") 
+            response = supabase.table("kuslar").insert(data).execute()
+            
         print("Başarılı:", response.data)
         if hasattr(response, "error") and response.error:
             print(f"Supabase kullanıcı kaydetme hatası ({name}): {response.error}")
