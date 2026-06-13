@@ -393,6 +393,7 @@ def mesajlar_json():
     return jsonify(
         mesajlar=[message for message in messages if message['ozel_alici'] is None or message['ozel_alici'] == active_user or message['gonderen'] == active_user],
         susturulanlar=list(muted_users),
+        logs=logs, # Aga asıl sihir burası, logları API'ye bağladık!
     )
 
 
