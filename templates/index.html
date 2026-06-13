@@ -14,8 +14,8 @@
     }
 
     body {
-      background-color: #eef2f7;
-      color: #333;
+      background-color: #1a202c;
+      color: #edf2f7;
       display: flex;
       height: 100vh;
       overflow: hidden;
@@ -24,8 +24,8 @@
     /* Sol Panel: Yönetim ve Bilgiler */
     .sidebar {
       width: 35%;
-      background-color: #ffffff;
-      border-right: 1px solid #e0e6ed;
+      background-color: #1a202c;
+      border-right: 1px solid #4a5568;
       display: flex;
       flex-direction: column;
       height: 100%;
@@ -39,12 +39,12 @@
       display: flex;
       flex-direction: column;
       height: 100%;
-      background-color: #f7fafc;
+      background-color: #1a202c;
     }
 
     h2,
     h3 {
-      color: #2c3e50;
+      color: #edf2f7;
       margin-bottom: 15px;
       display: flex;
       align-items: center;
@@ -52,17 +52,17 @@
     }
 
     .card {
-      background: #ffffff;
+      background: #2d3748;
       border-radius: 12px;
       padding: 15px;
       margin-bottom: 20px;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+      border: 1px solid #4a5568;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     }
 
     .kurucu-card {
       border-left: 5px solid #e53e3e;
-      background-color: #fffaf0;
+      background-color: #2d3748;
     }
 
     /* Form Elemanları */
@@ -75,21 +75,23 @@
       font-size: 13px;
       font-weight: 600;
       margin-bottom: 5px;
-      color: #4a5568;
+      color: #cbd5e0;
     }
 
     .form-control {
       width: 100%;
       padding: 10px;
-      border: 1px solid #cbd5e0;
+      border: 1px solid #4a5568;
       border-radius: 8px;
       font-size: 14px;
       outline: none;
+      background-color: #1f2937;
+      color: #edf2f7;
       transition: border-color 0.2s;
     }
 
     .form-control:focus {
-      border-color: #3182ce;
+      border-color: #63b3ed;
     }
 
     .btn {
@@ -105,16 +107,16 @@
     }
 
     .btn-primary {
-      background-color: #4299e1;
+      background-color: #2b6cb0;
       color: white;
     }
 
     .btn-primary:hover {
-      background-color: #3182ce;
+      background-color: #2c5282;
     }
 
     .btn-danger {
-      background-color: #f56565;
+      background-color: #c53030;
       color: white;
       padding: 5px 10px;
       font-size: 12px;
@@ -134,16 +136,17 @@
     .cmd-table td {
       padding: 8px;
       text-align: left;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid #4a5568;
+      color: #e2e8f0;
     }
 
     .cmd-table th {
-      background-color: #edf2f7;
-      color: #4a5568;
+      background-color: #2d3748;
+      color: #edf2f7;
     }
 
     .cmd-highlight {
-      color: #e53e3e;
+      color: #f6ad55;
       font-weight: bold;
     }
 
@@ -158,11 +161,12 @@
     .kus-table td {
       padding: 10px;
       text-align: left;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid #4a5568;
+      color: #e2e8f0;
     }
 
     .kus-table th {
-      background-color: #f7fafc;
+      background-color: #2d3748;
     }
 
     /* Log Kutusu */
@@ -180,9 +184,9 @@
 
     /* Chat Alanı */
     .chat-header {
-      background-color: #ffffff;
+      background-color: #2d3748;
       padding: 15px 20px;
-      border-bottom: 1px solid #e0e6ed;
+      border-bottom: 1px solid #4a5568;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -198,29 +202,30 @@
     }
 
     .message-bubble {
-      background-color: #ffffff;
+      background-color: #2d3748;
       padding: 12px 16px;
       border-radius: 12px;
       max-width: 85%;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+      border: 1px solid #4a5568;
       line-height: 1.4;
       word-wrap: break-word;
+      color: #edf2f7;
     }
 
     .message-system {
-      background-color: #feebc8;
-      border-left: 4px solid #dd6b20;
-      color: #c05621;
+      background-color: #1f2937;
+      border-left: 4px solid #63b3ed;
+      color: #cbd5e0;
       align-self: center;
       max-width: 95%;
       font-size: 13px;
     }
 
     .message-duyuru {
-      background-color: #fed7d7;
+      background-color: #4c2d3f;
       border: 2px dashed #f56565;
-      color: #9b2c2c;
+      color: #fed7d7;
       align-self: center;
       max-width: 95%;
       text-align: center;
@@ -238,12 +243,12 @@
 
     .msg-sender {
       font-weight: bold;
-      color: #2b6cb0;
+      color: #63b3ed;
     }
 
     .msg-role {
-      background-color: #edf2f7;
-      color: #4a5568;
+      background-color: #4a5568;
+      color: #edf2f7;
       padding: 2px 6px;
       border-radius: 20px;
       font-size: 10px;
@@ -252,9 +257,9 @@
 
     /* Chat Input Alanı */
     .chat-input-area {
-      background-color: #ffffff;
+      background-color: #1a202c;
       padding: 15px 20px;
-      border-top: 1px solid #e0e6ed;
+      border-top: 1px solid #4a5568;
     }
 
     .chat-form {
@@ -265,18 +270,20 @@
     .chat-input {
       flex: 1;
       padding: 12px;
-      border: 1px solid #cbd5e0;
+      border: 1px solid #4a5568;
       border-radius: 8px;
       outline: none;
       font-size: 14px;
+      background-color: #1f2937;
+      color: #edf2f7;
     }
 
     .chat-input:focus {
-      border-color: #4299e1;
+      border-color: #63b3ed;
     }
 
     .btn-send {
-      background-color: #4299e1;
+      background-color: #2b6cb0;
       color: white;
       width: auto;
       padding: 0 25px;
@@ -284,12 +291,12 @@
     }
 
     .btn-send:hover {
-      background-color: #3182ce;
+      background-color: #2c5282;
     }
 
     .user-tag {
       font-weight: bold;
-      color: #2b6cb0;
+      color: #63b3ed;
     }
 
     /* =========================================
@@ -320,7 +327,7 @@
         order: 2;
         /* Alta al */
         border-right: none;
-        border-top: 2px solid #cbd5e0;
+        border-top: 2px solid #4a5568;
         padding: 15px;
       }
 
@@ -355,16 +362,17 @@
   <div class="sidebar">
 
     <!-- Üst Profil Bilgisi -->
-    <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-      <div style="font-size: 14px; opacity: 0.9;">Hoş geldin,</div>
+    <div class="card" style="background: #2d3748; color: #edf2f7;">
+      <div style="font-size: 14px; opacity: 0.9; color: #cbd5e0;">Hoş geldin,</div>
       <div style="font-size: 20px; font-weight: bold; margin-top: 2px;">🕊️ {{ aktif_user }}</div>
       <div
-        style="font-size: 12px; margin-top: 5px; background: rgba(255,255,255,0.2); display: inline-block; padding: 2px 8px; border-radius: 10px;">
+        style="font-size: 12px; margin-top: 5px; background: rgba(255,255,255,0.08); display: inline-block; padding: 2px 8px; border-radius: 10px; color: #edf2f7;">
         Rol: {{ mevcut_rol }}
       </div>
       <div style="margin-top: 10px; text-align: right;">
         <a href="/logout"
-          style="color: white; font-size: 12px; text-decoration: none; font-weight: bold; opacity: 0.8;">[ Güvenli Çıkış
+          style="color: #edf2f7; font-size: 12px; text-decoration: none; font-weight: bold; opacity: 0.85;">[ Güvenli
+          Çıkış
           ]</a>
       </div>
     </div>
@@ -489,15 +497,15 @@
     <!-- Chat Header -->
     <div class="chat-header">
       <div>
-        <span style="font-size: 18px; font-weight: bold; color: #2c3e50;">🕊️ Güvercin.Net - Kafes</span>
+        <span style="font-size: 18px; font-weight: bold; color: #edf2f7;">🕊️ Güvercin.Net - Kafes</span>
         {% if slowmode > 0 %}
         <span
-          style="margin-left: 10px; font-size: 12px; background-color: #feebc8; color: #c05621; padding: 3px 8px; border-radius: 12px; font-weight: bold;">
+          style="margin-left: 10px; font-size: 12px; background-color: #2d3748; color: #63b3ed; padding: 3px 8px; border-radius: 12px; font-weight: bold; border: 1px solid #4a5568;">
           ⏳ {{ slowmode }}sn
         </span>
         {% endif %}
       </div>
-      <div style="font-size: 13px; color: #718096; display: flex; align-items: center;">
+      <div style="font-size: 13px; color: #cbd5e0; display: flex; align-items: center;">
         <span style="color: #48bb78; font-weight: bold;">Güvenli</span>
       </div>
     </div>
@@ -514,14 +522,14 @@
         {{ msg.metin }}
       </div>
       {% else %}
-      <div class="message-bubble" {% if msg.ozel_alici %} style="border: 2px solid #b7791f; background-color: #fefcbf;"
+      <div class="message-bubble" {% if msg.ozel_alici %} style="border: 2px solid #63b3ed; background-color: #2d3748;"
         {% endif %}>
         <div class="msg-header">
           <span class="msg-sender">{{ msg.gonderen }}</span>
           <span class="msg-role">{{ msg.rol }}</span>
           {% if msg.ozel_alici %}
           <span
-            style="font-size: 10px; background-color: #d69e2e; color: white; padding: 1px 5px; border-radius: 4px; font-weight: bold;">Fısıldama</span>
+            style="font-size: 10px; background-color: #4a5568; color: #edf2f7; padding: 1px 5px; border-radius: 4px; font-weight: bold;">Fısıldama</span>
           {% endif %}
         </div>
         <div class="msg-text">{{ msg.metin }}</div>
@@ -568,8 +576,8 @@
             } else if (msg.gonderen === '📢 DUYURU') {
               chatHTML += `<div class="message-bubble message-duyuru">${msg.metin}</div>`;
             } else {
-              let ozelStil = msg.ozel_alici ? 'style="border: 2px solid #b7791f; background-color: #fefcbf;"' : '';
-              let fıfıldamaTag = msg.ozel_alici ? '<span style="font-size: 10px; background-color: #d69e2e; color: white; padding: 1px 5px; border-radius: 4px; font-weight: bold;">Fısıldama</span>' : '';
+              let ozelStil = msg.ozel_alici ? 'style="border: 2px solid #63b3ed; background-color: #2d3748;"' : '';
+              let fıfıldamaTag = msg.ozel_alici ? '<span style="font-size: 10px; background-color: #4a5568; color: #edf2f7; padding: 1px 5px; border-radius: 4px; font-weight: bold;">Fısıldama</span>' : '';
 
               chatHTML += `
                                 <div class="message-bubble" ${ozelStil}>
