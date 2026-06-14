@@ -181,17 +181,25 @@ def update_user_by_id(kus_id, data):
         return False
 
 
+def normalize_role(role):
+    if not role or not isinstance(role, str):
+        return ''
+    return role.strip().lower()
+
+
 def get_user_role(username):
     user = get_user_data(username)
-    return user['rol'] if user else 'Yavru Kuş'
+    if user and isinstance(user.get('rol'), str):
+        return user['rol'].strip()
+    return 'Yavru Kuş'
 
 
 def is_kurucu(username):
-    return get_user_role(username) == 'Kurucu Güvercin'
+    return normalize_role(get_user_role(username)) == 'kurucu güvercin'
 
 
 def is_admin(username):
-    return get_user_role(username) in {'Kurucu Güvercin', 'Yan Admin'}
+    return normalize_role(get_user_role(username)) in {'kurucu güvercin', 'yan admin'}
 
 
 def add_log(message):
@@ -467,8 +475,8 @@ def mesaj_gonder():
 @app.route('/sifre-ve-rol-ver', methods=['POST'])
 def sifre_ve_rol_ver():
     user = session.get('kus_adi')
-    if not is_kurucu(user):
-        return abort(403, 'Şifre yönetimi sadece Kurucu Güvercin içindir.')
+    if not is_admin(user):
+        return abort(403, 'Şifre yönetimi sadece kurucu veya yan admin içindir.')
 
     name = request.form.get('kus_adi', '').strip()
     password = request.form.get('sifre', '').strip()
