@@ -31,7 +31,7 @@ app.config.update(
 state_lock = threading.Lock()
 messages = []
 logs = []
-muted_users = set()
+muted_users = {}
 slowmode_seconds = 0
 last_message_times = {}
 recent_messages = {}
@@ -214,6 +214,33 @@ def add_message(sender, role, text, recipient=None):
             del messages[:-200]
 
 
+def cleanup_expired_mutes():
+    now = time.time()
+    expired = [name for name, until in muted_users.items() if until <= now]
+    for name in expired:
+        muted_users.pop(name, None)
+
+
+def mute_user(username, duration_minutes=20, reason='spam'):
+    if not username:
+        return False
+    username = clean_input(username)
+    expires_at = time.time() + duration_minutes * 60
+    muted_users[username] = expires_at
+    if reason == 'spam':
+        add_message('SİSTEM', '🛡️ Otomasyon', f'Sistem {username} kuşunu spamdan dolayı {duration_minutes} dakika susturdu.')
+        add_log(f'🔇 Sistem {username} kuşunu spamdan dolayı {duration_minutes} dakika susturdu.')
+    else:
+        add_message('SİSTEM', '🛡️ Otomasyon', f'Sistem {username} kuşunu {duration_minutes} dakika susturdu.')
+        add_log(f'🔇 Sistem {username} kuşunu {duration_minutes} dakika susturdu.')
+    return True
+
+
+def is_user_muted(username):
+    cleanup_expired_mutes()
+    return username in muted_users
+
+
 @app.after_request
 def secure_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -361,14 +388,19 @@ def mesaj_gonder():
         if command == '/mute' and len(parts) > 1:
             target = parts[1]
             if load_roles().get(target, {}).get('rol') != 'Kurucu Güvercin':
-                muted_users.add(target)
-                add_message('SİSTEM', '🛡️ Otomasyon', f'🔇 {target} kuşu {user} tarafından susturuldu!')
-                add_log(f'🔇 {target}, {user} tarafından susturuldu.')
+                duration = 20
+                if len(parts) > 2:
+                    try:
+                        duration = int(parts[2])
+                    except ValueError:
+                        duration = 20
+                mute_user(target, duration, reason='manual')
+                add_log(f'🔇 {target}, {user} tarafından {duration} dakika susturuldu.')
             return redirect(url_for('index'))
 
         if command == '/unmute' and len(parts) > 1:
             target = parts[1]
-            muted_users.discard(target)
+            muted_users.pop(target, None)
             add_message('SİSTEM', '🛡️ Otomasyon', f'🔊 {target} kuşunun cezası {user} tarafından kaldırıldı!')
             add_log(f'🔊 {target} cezası {user} tarafından kaldırıldı.')
             return redirect(url_for('index'))
@@ -401,7 +433,7 @@ def mesaj_gonder():
                 add_message(user, role, f'🤫 (Fısıldama): {private_text}', recipient=target)
         return redirect(url_for('index'))
 
-    if user in muted_users:
+    if is_user_muted(user):
         return redirect(url_for('index'))
 
     # RATE LIMIT: enforce a minimal interval for non-Kurucu users
@@ -425,7 +457,7 @@ def mesaj_gonder():
     recent_messages[user] = user_recent
 
     if user_recent['count'] > 3:
-        # too many repeats in short period
+        mute_user(user, duration_minutes=20, reason='spam')
         return redirect(url_for('index'))
 
     add_message(user, role, text)
@@ -470,6 +502,7 @@ def mesajlar_json():
     if active_user and active_user not in roles:
         return jsonify({"kicked": True})
         
+    cleanup_expired_mutes()
     return jsonify(
         mesajlar=[message for message in messages if message['ozel_alici'] is None or message['ozel_alici'] == active_user or message['gonderen'] == active_user],
         susturulanlar=list(muted_users),
