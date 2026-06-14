@@ -597,11 +597,9 @@
         }
         lastSendTs = now;
         if (sendBtn) sendBtn.disabled = true;
-        if (input) input.disabled = true;
-        // Güvenlik için 1s sonra aç
+        // input remains enabled so the mesaj value is submitted correctly
         setTimeout(function () {
           if (sendBtn) sendBtn.disabled = false;
-          if (input) input.disabled = false;
         }, 1000);
       });
     })();
