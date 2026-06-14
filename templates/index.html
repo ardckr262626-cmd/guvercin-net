@@ -461,10 +461,27 @@
               {% if mevcut_rol == 'Kurucu Güvercin' %}
               <td>
                 {% if kus.isim != aktif_user %}
-                <form action="/kus-sil/{{ kus.id }}" method="POST" style="display:inline;">
-                  <button type="submit" class="btn btn-danger"
-                    onclick="return confirm('{{ kus.isim }} kuşunu yuvadan atmak istediğine emin misin aga?')">Kov</button>
-                </form>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <form action="/kus-sil/{{ kus.id }}" method="POST" style="display:inline;">
+                    <button type="submit" class="btn btn-danger"
+                      onclick="return confirm('{{ kus.isim }} kuşunu yuvadan atmak istediğine emin misin aga?')">Kov</button>
+                  </form>
+
+                  <button type="button" class="btn edit-button" data-edit-id="{{ kus.id }}"
+                    style="width:auto; padding:6px 10px;">Düzenle</button>
+                </div>
+
+                <div id="edit-form-{{ kus.id }}" style="display:none; margin-top:8px;">
+                  <form action="/kus-guncelle/{{ kus.id }}" method="POST"
+                    style="display:flex; gap:6px; align-items:center;">
+                    <input name="yeni_isim" class="form-control" placeholder="Yeni isim" style="width:140px;"
+                      value="{{ kus.isim }}">
+                    <input name="yeni_sifre" class="form-control" placeholder="Yeni şifre" style="width:140px;">
+                    <input name="yeni_rol" class="form-control" placeholder="Yeni rol" style="width:120px;"
+                      value="{{ kus.rol }}">
+                    <button type="submit" class="btn btn-primary" style="width:auto;">Kaydet</button>
+                  </form>
+                </div>
                 {% else %}
                 -
                 {% endif %}
@@ -563,28 +580,60 @@
     // Sayfa ilk açıldığında chati aşağı kaydır
     scrollToBottom();
 
+    // Basit istemci tarafı önlemler: formu submit ederken düğmeyi devre dışı bırak
+    (function () {
+      const form = document.getElementById('chat-submit-form');
+      if (!form) return;
+      const sendBtn = form.querySelector('button[type="submit"]');
+      const input = document.getElementById('mesaj-girdi');
+      let lastSendTs = 0;
+
+      form.addEventListener('submit', function (e) {
+        const now = Date.now();
+        // Local debounce: 900ms
+        if (now - lastSendTs < 900) {
+          e.preventDefault();
+          return false;
+        }
+        lastSendTs = now;
+        if (sendBtn) sendBtn.disabled = true;
+        if (input) input.disabled = true;
+        // Güvenlik için 1s sonra aç
+        setTimeout(function () {
+          if (sendBtn) sendBtn.disabled = false;
+          if (input) input.disabled = false;
+        }, 1000);
+      });
+    })();
+
     // Her 1.5 saniyede bir hem mesajları hem de logları arka plandan çekip günceller
     setInterval(function () {
       fetch('/mesajlar')
         .then(response => response.json())
         .then(data => {
+          if (data && data.kicked) {
+            // Sunucu kullanıcının silindiğini bildirdi -> giriş sayfasına gönder
+            window.location = '/login';
+            return;
+          }
+
           // --- 1. CHAT KUTUSUNU GÜNCELLE ---
           let chatHTML = '';
-          data.mesajlar.forEach(msg => {
+          (data.mesajlar || []).forEach(msg => {
             if (msg.gonderen === 'SİSTEM') {
               chatHTML += `<div class="message-bubble message-system"><strong>${msg.gonderen}:</strong> ${msg.metin}</div>`;
             } else if (msg.gonderen === '📢 DUYURU') {
               chatHTML += `<div class="message-bubble message-duyuru">${msg.metin}</div>`;
             } else {
               let ozelStil = msg.ozel_alici ? 'style="border: 2px solid #63b3ed; background-color: #2d3748;"' : '';
-              let fıfıldamaTag = msg.ozel_alici ? '<span style="font-size: 10px; background-color: #4a5568; color: #edf2f7; padding: 1px 5px; border-radius: 4px; font-weight: bold;">Fısıldama</span>' : '';
+              let fisildamaTag = msg.ozel_alici ? '<span style="font-size: 10px; background-color: #4a5568; color: #edf2f7; padding: 1px 5px; border-radius: 4px; font-weight: bold;">Fısıldama</span>' : '';
 
               chatHTML += `
                                 <div class="message-bubble" ${ozelStil}>
                                     <div class="msg-header">
                                         <span class="msg-sender">${msg.gonderen}</span>
                                         <span class="msg-role">${msg.rol}</span>
-                                        ${fıfıldamaTag}
+                                        ${fisildamaTag}
                                     </div>
                                     <div class="msg-text">${msg.metin}</div>
                                 </div>
@@ -612,6 +661,22 @@
         })
         .catch(err => console.error("Veri çekilirken hata oluştu aga:", err));
     }, 1500);
+  </script>
+  <script>
+    function toggleEdit(id) {
+      const el = document.getElementById('edit-form-' + id);
+      if (!el) return;
+      el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.edit-button').forEach(button => {
+        button.addEventListener('click', function () {
+          const id = this.getAttribute('data-edit-id');
+          toggleEdit(id);
+        });
+      });
+    });
   </script>
 </body>
 

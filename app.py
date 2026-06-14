@@ -34,6 +34,8 @@ logs = []
 muted_users = set()
 slowmode_seconds = 0
 last_message_times = {}
+recent_messages = {}
+MIN_MESSAGE_INTERVAL = 1  # seconds, minimal interval for non-Kurucu users to avoid rapid double-posting
 
 
 def clean_input(value):
@@ -116,7 +118,6 @@ def get_user_data(username):
     try:
         response = supabase.table("kuslar").select("id, isim, sifre, rol").eq("isim", username).single().execute()
         if hasattr(response, "error") and response.error:
-            # Kullanıcı bulunamazsa buraya düşer, bu normaldir
             return None
         return response.data
     except Exception as e:
@@ -127,9 +128,12 @@ def upsert_user(name, password, role):
     name = clean_input(name)
     role = clean_input(role) or 'Yavru Kuş'
     
-    # Aga önce kullanıcı zaten var mı diye kontrol ediyoruz
     existing_user = get_user_data(name)
     
+    # Aga BUG FIX: Yeni kullanıcı eklerken şifre yoksa direkt reddet
+    if not existing_user and not password:
+        return False
+        
     data = {
         "isim": name,
         "rol": role,
@@ -140,16 +144,10 @@ def upsert_user(name, password, role):
 
     try:
         if existing_user:
-            # Kullanıcı varsa UPDATE işlemi yap
             response = supabase.table("kuslar").update(data).eq("isim", name).execute()
         else:
-            # Kullanıcı yoksa INSERT (ekleme) yap
-            if not password:
-                # Eğer şifre verilmediyse geçici bir default şifre hashleyelim ki patlamasın
-                data["sifre"] = hash_password("123456") 
             response = supabase.table("kuslar").insert(data).execute()
             
-        print("Başarılı:", response.data)
         if hasattr(response, "error") and response.error:
             print(f"Supabase kullanıcı kaydetme hatası ({name}): {response.error}")
             return False
@@ -168,6 +166,18 @@ def delete_user(name):
         return True
     except Exception as e:
         print(f"Supabase kullanıcı silme hatası: {e}")
+        return False
+
+
+def update_user_by_id(kus_id, data):
+    try:
+        response = supabase.table("kuslar").update(data).eq("id", kus_id).execute()
+        if hasattr(response, "error") and response.error:
+            print(f"Supabase kullanıcı güncelleme hatası (id={kus_id}): {response.error}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Supabase kullanıcı güncelleme hatası: {e}")
         return False
 
 
@@ -275,6 +285,51 @@ def kus_sil(kus_id):
     return redirect(url_for('index'))
 
 
+@app.route('/kus-guncelle/<int:kus_id>', methods=['POST'])
+def kus_guncelle(kus_id):
+    active_user = session.get('kus_adi')
+    if not active_user or not is_kurucu(active_user):
+        abort(403)
+
+    yeni_isim = request.form.get('yeni_isim', '').strip()
+    yeni_sifre = request.form.get('yeni_sifre', '').strip()
+    yeni_rol = request.form.get('yeni_rol', '').strip() or 'Yavru Kuş'
+
+    data = {}
+    if yeni_isim:
+        data['isim'] = clean_input(yeni_isim)
+        # isim çakışması kontrolü
+        existing = get_user_data(data['isim'])
+        if existing and existing.get('id') != kus_id:
+            add_log(f'⚠️ {active_user} isim değişikliği denedi, fakat {data["isim"]} zaten var.')
+            return redirect(url_for('index'))
+    if yeni_rol:
+        data['rol'] = clean_input(yeni_rol)
+    if yeni_sifre:
+        data['sifre'] = hash_password(yeni_sifre)
+
+    if not data:
+        return redirect(url_for('index'))
+
+    if update_user_by_id(kus_id, data):
+        add_log(f'✏️ {active_user} bir kuşun bilgilerini güncelledi: id={kus_id} ({data.get("isim","-")})')
+    else:
+        add_log(f'⚠️ {active_user} kullanıcı güncelleme hatası: id={kus_id}')
+
+    # Eğer aktif kullanıcının kendisini güncellediyse session ismini güncelle
+    current = get_user_data(active_user)
+    try:
+        # try to find updated record to adjust session if needed
+        updated_roles = load_roles()
+        if active_user not in updated_roles:
+            # session user name might have been changed — kill session to force re-login
+            session.pop('kus_adi', None)
+    except Exception:
+        pass
+
+    return redirect(url_for('index'))
+
+
 @app.route('/mesaj-gonder', methods=['POST'])
 def mesaj_gonder():
     global slowmode_seconds
@@ -285,6 +340,12 @@ def mesaj_gonder():
         return redirect(url_for('index'))
 
     roles = load_roles()
+    
+    # Aga BUG FIX: Mesaj atarken de yuvada var mı diye son kez kontrol et
+    if user not in roles:
+        session.pop('kus_adi', None)
+        return redirect(url_for('login'))
+
     role = roles.get(user, {}).get('rol', 'Yavru Kuş')
 
     if text.startswith('/') and is_admin(user):
@@ -343,12 +404,29 @@ def mesaj_gonder():
     if user in muted_users:
         return redirect(url_for('index'))
 
-    if role != 'Kurucu Güvercin' and slowmode_seconds > 0:
-        now = time.time()
+    # RATE LIMIT: enforce a minimal interval for non-Kurucu users
+    now = time.time()
+    if not is_kurucu(user):
+        required_interval = max(MIN_MESSAGE_INTERVAL, slowmode_seconds or 0)
         last = last_message_times.get(user, 0)
-        if now - last < slowmode_seconds:
+        if now - last < required_interval:
             return redirect(url_for('index'))
         last_message_times[user] = now
+
+    # DUPLICATE MESSAGE PREVENTION: block repeated identical messages
+    user_recent = recent_messages.get(user, {'text': None, 'count': 0, 'time': 0})
+    if text == user_recent['text'] and now - user_recent['time'] < 10:
+        user_recent['count'] += 1
+    else:
+        user_recent['text'] = text
+        user_recent['count'] = 1
+        user_recent['time'] = now
+
+    recent_messages[user] = user_recent
+
+    if user_recent['count'] > 3:
+        # too many repeats in short period
+        return redirect(url_for('index'))
 
     add_message(user, role, text)
     return redirect(url_for('index'))
@@ -374,15 +452,11 @@ def sifre_ve_rol_ver():
             index += 1
         name = f'Anonim_{index}'
 
-    if password:
-        password_value = password
-    else:
-        password_value = ''
-
-    if upsert_user(name, password_value, role):
+    if upsert_user(name, password, role):
         add_log(f'🔐 {user} kullanıcısı için şifre ve rol güncellendi: {name}')
     else:
-        print(f"Kullanıcı güncelleme başarısız oldu: {name}")
+        # BUG FIX: Yeni kayıt şifresiz denendiyse hata mesajı bas
+        add_log(f'⚠️ Başarısız işlem: Yeni hesaba ({name}) şifre girmedin aga!')
 
     return redirect(url_for('index'))
 
@@ -390,10 +464,16 @@ def sifre_ve_rol_ver():
 @app.route('/mesajlar')
 def mesajlar_json():
     active_user = session.get('kus_adi')
+    roles = load_roles()
+    
+    # Aga BUG FIX: Kullanıcı silindiyse AJAX'a kovulduğunu bildir
+    if active_user and active_user not in roles:
+        return jsonify({"kicked": True})
+        
     return jsonify(
         mesajlar=[message for message in messages if message['ozel_alici'] is None or message['ozel_alici'] == active_user or message['gonderen'] == active_user],
         susturulanlar=list(muted_users),
-        logs=logs, # Aga asıl sihir burası, logları API'ye bağladık!
+        logs=logs,
     )
 
 
